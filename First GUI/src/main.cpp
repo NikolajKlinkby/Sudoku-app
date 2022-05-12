@@ -1,4 +1,7 @@
+#include <fstream>
 #include <iostream>
+#include <filesystem>
+#include <string>
 #include <cstdio>
 #include <imgui.h>
 #include "imgui_impl_sdl.h"
@@ -75,7 +78,15 @@ int main() {
 
     //MAIN loop
     bool done = false;
-    int print = 0;
+    std::string print;
+    std::ofstream text_depos_write;
+    std::ifstream text_depos_read;
+
+    text_depos_write.open ("text_depos.txt",std::ios::app);
+    text_depos_write.close();
+    std::filesystem::remove("text_depos.txt");
+    text_depos_write.open ("text_depos.txt",std::ios::app);
+    text_depos_write.close();
 
     while (!done){
         // Start an instance of SDL
@@ -96,15 +107,16 @@ int main() {
 
         //Making a window
         bool tool_active = true;
-        const char *win_name = "Window";
-        ImGui::Begin(win_name,&tool_active,ImGuiWindowFlags_MenuBar);
+        const char *win_name = "Text writer";
+        ImGui::Begin(win_name,&tool_active,ImGuiWindowFlags_NoCollapse);
 
         //Making a menu bar for the window
+        //Right now the window is of a type that can't have a menue bar
         if (ImGui::BeginMenuBar())
         {
             if (ImGui::BeginMenu("Tools"))
             {
-                if (ImGui::MenuItem("Quit", "ctrl o")) {
+                if (ImGui::MenuItem("Quit", "shortcut")) {
 
                     //Need to not create a segmentation fault
 
@@ -122,20 +134,26 @@ int main() {
             ImGui::EndMenuBar();
         }
 
+
         //Creating a button with some text on it and above it
-        ImGui::TextColored(ImVec4(1,1,0,1), "Try and press the button below");
-        if (ImGui::Button("I do something!")) {
-            print += 1;
+        char buf[10];
+        ImGui::InputText("Line",buf,IM_ARRAYSIZE(buf));
+
+        if (ImGui::Button("Write line")){
+            text_depos_write.open ("text_depos.txt",std::ios::app);
+            text_depos_write << buf << "\n";
+            text_depos_write.close();
         }
 
-        //??? Doesnt work
-        char buf[10];
-        ImGui::InputText("Write in me",buf,IM_ARRAYSIZE(buf));
 
         //Creating a scrolling text section
         ImGui::BeginChild("Scrolling");
-        for (int n = 0; n < print; n++)
-            ImGui::Text("%03d: Again and", n);
+        text_depos_read.open ("text_depos.txt",std::ios::in);
+        while(!text_depos_read.eof()){
+            std::getline(text_depos_read, print);
+            ImGui::Text("%s", print.c_str());
+        }
+        text_depos_read.close();
         ImGui::EndChild();
         ImGui::End();
 
