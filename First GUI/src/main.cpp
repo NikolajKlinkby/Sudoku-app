@@ -8,6 +8,8 @@
     #include <SDL_opengles2.h>
 #else
     #include <SDL_opengl.h>
+#include <cstring>
+
 #endif
 
 
@@ -49,7 +51,7 @@ int main() {
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-    SDL_Window* window = SDL_CreateWindow("Dear ImGui SDL2+OpenGL3 example", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, window_flags);
+    SDL_Window* window = SDL_CreateWindow("Application name", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, window_flags);
     SDL_GLContext gl_context = SDL_GL_CreateContext(window);
     SDL_GL_MakeCurrent(window, gl_context);
     SDL_GL_SetSwapInterval(1); // Enable vsync
@@ -73,7 +75,10 @@ int main() {
 
     //MAIN loop
     bool done = false;
+    int print = 0;
+
     while (!done){
+        // Start an instance of SDL
         SDL_Event event;
         while (SDL_PollEvent(&event))
         {
@@ -89,9 +94,50 @@ int main() {
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
-        ImGui::Text("Hello, world %d", 123);
-        if (ImGui::Button("Print 'HEJ'"))
-            std::cout << "HEJ" << std::endl;
+        //Making a window
+        bool tool_active = true;
+        const char *win_name = "Window";
+        ImGui::Begin(win_name,&tool_active,ImGuiWindowFlags_MenuBar);
+
+        //Making a menu bar for the window
+        if (ImGui::BeginMenuBar())
+        {
+            if (ImGui::BeginMenu("Tools"))
+            {
+                if (ImGui::MenuItem("Quit", "ctrl o")) {
+
+                    //Need to not create a segmentation fault
+
+                    // Perform cleanup
+                    ImGui_ImplOpenGL3_Shutdown();
+                    ImGui_ImplSDL2_Shutdown();
+                    ImGui::DestroyContext();
+
+                    SDL_GL_DeleteContext(gl_context);
+                    SDL_DestroyWindow(window);
+                    SDL_Quit();}
+
+                ImGui::EndMenu();
+            }
+            ImGui::EndMenuBar();
+        }
+
+        //Creating a button with some text on it and above it
+        ImGui::TextColored(ImVec4(1,1,0,1), "Try and press the button below");
+        if (ImGui::Button("I do something!")) {
+            print += 1;
+        }
+
+        //??? Doesnt work
+        char buf[10];
+        ImGui::InputText("Write in me",buf,IM_ARRAYSIZE(buf));
+
+        //Creating a scrolling text section
+        ImGui::BeginChild("Scrolling");
+        for (int n = 0; n < print; n++)
+            ImGui::Text("%03d: Again and", n);
+        ImGui::EndChild();
+        ImGui::End();
 
         // Rendering
         ImGui::Render();
