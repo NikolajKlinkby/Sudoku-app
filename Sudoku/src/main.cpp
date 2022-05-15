@@ -21,7 +21,7 @@ int main() {
         printf("Error: %s\n", SDL_GetError());
         return -1;
     }
-
+    /*---- CROSS-PLATFORM COMPATABILITY ----*/
     // Decide GL+GLSL versions
     #if defined(IMGUI_IMPL_OPENGL_ES2)
         // GL ES 2.0 + GLSL 100
@@ -68,7 +68,7 @@ int main() {
     ImGui::StyleColorsDark();
 
     // Setup Platform/Renderer backends
-    ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
+    ImGui_ImplSDL2_InitForOpenGL(window, gl_context); // Function name variable; i.e. if "vulkan" use: ImGui_ImplSDL2_InitForVulkan() etc..
     ImGui_ImplOpenGL3_Init(glsl_version);
 
     //Color
