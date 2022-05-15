@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(IMGUI_DIR ${PROJECT_SOURCE_DIR}/imgui)
 set(IMGUI_BACK_DIR ${IMGUI_DIR}/backends)
 
-set(sources ${PROJECT_SOURCE_DIR}/src/main.cpp ${IMGUI_DIR}/imgui.cpp ${IMGUI_DIR}/imgui_demo.cpp ${IMGUI_DIR}/imgui_draw.cpp ${IMGUI_DIR}/imgui_tables.cpp ${IMGUI_DIR}/imgui_widgets.cpp src/SudokuLogic.cpp)
+set(sources ${PROJECT_SOURCE_DIR}/src/main.cpp ${IMGUI_DIR}/imgui.cpp ${IMGUI_DIR}/imgui_demo.cpp ${IMGUI_DIR}/imgui_draw.cpp ${IMGUI_DIR}/imgui_tables.cpp ${IMGUI_DIR}/imgui_widgets.cpp src/SudokuLogic.cpp src/SudkoAI.cpp src/SudkoAI.h)
 set(backends ${IMGUI_BACK_DIR}/imgui_impl_sdl.cpp ${IMGUI_BACK_DIR}/imgui_impl_opengl3.cpp)
 
 add_executable(SudokuApp ${sources} ${backends})

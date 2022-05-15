@@ -63,6 +63,7 @@ int main() {
     IMGUI_CHECKVERSION();//@TODO what is this???
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
+    io.ConfigInputTextCursorBlink = false;
 
     // Setup Dear ImGui style
     ImGui::StyleColorsDark();
@@ -93,13 +94,34 @@ int main() {
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
+        static bool use_work_area = true;
+        const ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImGui::SetNextWindowPos(use_work_area ? viewport->WorkPos : viewport->Pos);
+        ImGui::SetNextWindowSize(use_work_area ? viewport->WorkSize : viewport->Size);
+
         //Making a window
         bool tool_active = true;
-        const char *win_name = "Grid";
-        ImGui::Begin(win_name,&tool_active,ImGuiWindowFlags_NoCollapse|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoResize);
+        const char *grid_name = "Grid";
+        ImGui::Begin(grid_name,&tool_active,ImGuiWindowFlags_NoCollapse|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoResize|ImGuiWindowFlags_NoDecoration);
 
+        ImVec2 cell_vec = ImVec2(200,100);
+        ImGuiWindowFlags cell_flags = (ImGuiWindowFlags)(ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoResize);
+        ImGuiInputTextFlags cell_text_flags = (ImGuiInputTextFlags)(ImGuiInputTextFlags_AlwaysOverwrite);
+
+
+        const char *R1C1_name = "R1C1";
+        char R1C1_buf[2];
+        ImGui::BeginChild(R1C1_name,cell_vec, true,cell_flags);
+        ImGui::InputText(R1C1_name,R1C1_buf, IM_ARRAYSIZE(R1C1_buf),cell_text_flags);
+        ImGui::EndChild();
+
+        ImGui::BeginTable(R1C1_name,9,ImGuiTableFlags_Borders,cell_vec);
+
+        ImGui::EndTable();
 
         ImGui::End();
+
+
 
 
         // Rendering
