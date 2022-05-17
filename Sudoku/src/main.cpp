@@ -1,5 +1,6 @@
 #include <cstdio>
-
+#include <iostream>
+#include <algorithm>
 #include "SudokuLogic.h"
 
 #include <imgui.h>
@@ -12,9 +13,7 @@
     #include <SDL_opengl.h>
 #endif
 
-
-int main() {
-
+int main(){
     // Setup SDL
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0)
     {
@@ -23,28 +22,28 @@ int main() {
     }
     /*---- CROSS-PLATFORM COMPATABILITY ----*/
     // Decide GL+GLSL versions
-    #if defined(IMGUI_IMPL_OPENGL_ES2)
-        // GL ES 2.0 + GLSL 100
+#if defined(IMGUI_IMPL_OPENGL_ES2)
+    // GL ES 2.0 + GLSL 100
         const char* glsl_version = "#version 100";
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-    #elif defined(__APPLE__)
-        // GL 3.2 Core + GLSL 150
+#elif defined(__APPLE__)
+    // GL 3.2 Core + GLSL 150
         const char* glsl_version = "#version 150";
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG); // Always required on Mac
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
-    #else
-        // GL 3.0 + GLSL 130
-        const char* glsl_version = "#version 130";
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-    #endif
+#else
+    // GL 3.0 + GLSL 130
+    const char* glsl_version = "#version 130";
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+#endif
 
     // Setting attributes for the OpenGL SDL2. Doc: https://documentation.help/SDL/sdlglattr.html
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
@@ -74,6 +73,14 @@ int main() {
 
     //Color
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+
+    //* --- test bed for sudoku *--//
+
+    Sudoku sudoku;
+    sudoku.Construct_Sudoku();
+    sudoku.print_sudoku();
+
 
     //MAIN loop
     bool done = false;
@@ -144,3 +151,4 @@ int main() {
 
     return 0;
 }
+

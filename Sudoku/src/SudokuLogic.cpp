@@ -28,6 +28,23 @@ void Sudoku::set_solver_square_to_current(int row,int col){
     }
 }
 
+
+bool Sudoku::check_solver_grid()
+{
+    for(int i = 0; i < 9; i++)
+    {
+        for(int j = 0; j < 9; j++)
+        {
+            if (solver_sudoku_array[i][j] == 0)
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+
 void Sudoku::set_annotations(){
     //Looping over all cells
     for (int i = 0; i < 9; i++){
@@ -58,7 +75,7 @@ void Sudoku::set_annotations(){
                 }
 
             }
-            //I cell is filled then annotate 0
+            //If cell is filled then annotate 0
             else {
                 for (int k = 1; k < 10; k++)
                     annotation_solver_sudoku_array[i][j][k] = 0;
@@ -239,33 +256,34 @@ bool Sudoku::check_grid()
     return true;
 }
 
-bool Sudoku::fill_array()
-{
-    for (int i= 0; i < 81; i++)
-    {
-        int row = (int)floor((double)i/9);
-        int col = i % 9;
+bool Sudoku::fill_array() {
+    int row;
+    int col;
+    Sudoku::set_rnd_number_list();
+    for (int i= 0; i < 81; i++) {
+        row = (int)floor((double)i/9);
+        col = i % 9;
         if (sudoku_array[row][col] == 0){
-            for (int j = 0; j < 9; j++){
-                if (is_possible(row,col,rnd_number_list[j])){
+            for (int j = 0; j < 9; j++) {
+                if (is_possible(row, col, rnd_number_list[j])) {
                     sudoku_array[row][col] = rnd_number_list[j];
                     solved_sudoku_array[row][col] = rnd_number_list[j];
-                    if (check_grid()){
+                    if (check_grid()) {
                         return true;
-                    }
-                    else{
-                        if (fill_array())
-                        {
+                    } else {
+                        if (fill_array()) {
                             return true;
                         }
                     }
                 }
-                break;
+                sudoku_array[row][col] = rnd_number_list[j];
+                solved_sudoku_array[row][col] = rnd_number_list[j];
             }
+            break;
         }
-        sudoku_array[row][col] = 0;
-        solved_sudoku_array[row][col] = 0;
+
     }
+    return false;
 }
 
 void Sudoku::print_sudoku()
@@ -306,6 +324,33 @@ void Sudoku::set_square_to_current(int row,int col){
     }
 }
 
+bool Sudoku::call_solvers(){
+    Sudoku::set_annotations();
+    if (Sudoku::naked_singles()) {
+        if (Sudoku::check_solver_grid()) {
+            return true;
+        }
+        else{
+            if (Sudoku::call_solvers()){
+                return true;
+            }
+        }
+    }
+    else if (Sudoku::hidden_singles()){
+        if (Sudoku::check_solver_grid()) {
+            return true;
+        }
+        else{
+            if (Sudoku::call_solvers()){
+                return true;
+            }
+        }
+    }
+    else{
+        return false;
+    }
+}
+
 bool Sudoku::solve_grid() {
 
     //First copy the current grid to the solver grid
@@ -315,26 +360,8 @@ bool Sudoku::solve_grid() {
         }
     }
 
-    //Call solvers untill it fails or solves
-    bool solved = false;
-    while(!solved){
-        Sudoku::set_annotations();
-        if (Sudoku::naked_singles()) {
-            if (Sudoku::check_grid()) {
-                solved = true;
-            }
-        }
-        else if (Sudoku::hidden_singles()){
-            if (Sudoku::check_grid()) {
-                solved = true;
-            }
-        }
-        else{
-            break;
-        }
-    }
-
-    return solved;
+    //Call solvers until it fails or solves
+    return call_solvers();
 }
 
 //TODO create flags to enable disable different logic solve methods
@@ -347,18 +374,24 @@ void Sudoku::set_sudoku(int max_rm_cells) {
     int row;
     int col;
 
+    //Setting random number generation
+    std::random_device rd;
+    std::mt19937 seed(rd());
+    std::uniform_int_distribution<int> gen(0, 80);
+
     int rnd;
 
-    //Something recursive here that revisets all none 0 cells randomly.
+    //Something recursive here that revisits all none 0 cells randomly.
     while (rm_cells <= max_rm_cells){
         //initialise the random number
-        rnd = rand()%81;
+        rnd = gen(seed);
         row = (int) floor((double)rnd/9);
         col = rnd%9;
 
+
         //Walk around the grid randomly untill hittimg a none zero cell
         while (sudoku_array[row][col]==0){
-            rnd = rand()%81;
+            rnd = gen(seed);
             row = (int) floor((double)rnd/9);
             col = rnd%9;
         }
@@ -367,7 +400,7 @@ void Sudoku::set_sudoku(int max_rm_cells) {
         rm_val = sudoku_array[row][col]; //Storing removed value
         sudoku_array[row][col] = 0;
         if (solve_grid()){
-            rm_cells ++;
+            rm_cells += 1;
         }
         else{
             sudoku_array[row][col] = rm_val;
@@ -381,9 +414,8 @@ void Sudoku::set_sudoku(int max_rm_cells) {
 
 void Sudoku::Construct_Sudoku() {
     Sudoku::initialize_array();
-    Sudoku::set_rnd_number_list();
     Sudoku::fill_array();
-    Sudoku::set_sudoku(30);
+    Sudoku::set_sudoku(50);
 }
 
 

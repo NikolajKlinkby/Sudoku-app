@@ -4,7 +4,7 @@ class Sudoku  // The class
 {
 private:
     /*-- Private attributes --*/
-    int rnd_number_list[9]{};
+    int rnd_number_list[9]{1,2,3,4,5,6,7,8,9};
 
     int annotation_solver_sudoku_array[9][9][9]{};
     int solver_sudoku_array[9][9]{};
@@ -18,6 +18,8 @@ private:
     void set_solver_col_to_current(int i);
     void set_solver_row_to_current(int i);
     void set_solver_square_to_current(int row,int col);
+
+    bool check_solver_grid();
 
     //Solver logic
     void set_annotations();
@@ -52,6 +54,8 @@ public: // Access specifier for class
     bool check_grid();
 
     bool fill_array();
+
+    bool call_solvers();
 
     bool solve_grid();
 
