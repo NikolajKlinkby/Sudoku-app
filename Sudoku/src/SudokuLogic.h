@@ -21,7 +21,7 @@ private:
 
     //Solver logic
     void set_annotations();
-    bool check_annotation();
+    bool naked_singles();
     bool hidden_singles();
 
 
@@ -53,7 +53,11 @@ public: // Access specifier for class
 
     bool fill_array();
 
+    bool solve_grid();
+
     void print_sudoku();
+
+    void set_sudoku(int max_rm_cells);
 
 };
 
