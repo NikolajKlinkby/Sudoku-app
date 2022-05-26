@@ -1,7 +1,96 @@
-#include "SudkoAI.h"
-#include "imgui.h"
-#include "imgui_internal.h"
+#include "SudokuWidget.h"
 
+#if defined(_MSC_VER) && !defined(_CRT_SECURE_NO_WARNINGS)
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+
+#include "imgui.h"
+
+#ifndef IMGUI_DEFINE_MATH_OPERATORS
+#define IMGUI_DEFINE_MATH_OPERATORS
+#endif
+#include "imgui_internal.h"
+#include "imstb_textedit.h"
+
+// System includes
+#include <ctype.h>      // toupper
+#if defined(_MSC_VER) && _MSC_VER <= 1500 // MSVC 2008 or earlier
+#include <stddef.h>     // intptr_t
+#else
+#include <stdint.h>     // intptr_t
+#endif
+
+//-------------------------------------------------------------------------
+// Warnings
+//-------------------------------------------------------------------------
+
+// Visual Studio warnings
+#ifdef _MSC_VER
+#pragma warning (disable: 4127)     // condition expression is constant
+#pragma warning (disable: 4996)     // 'This function or variable may be unsafe': strcpy, strdup, sprintf, vsnprintf, sscanf, fopen
+#if defined(_MSC_VER) && _MSC_VER >= 1922 // MSVC 2019 16.2 or later
+#pragma warning (disable: 5054)     // operator '|': deprecated between enumerations of different types
+#endif
+#pragma warning (disable: 26451)    // [Static Analyzer] Arithmetic overflow : Using operator 'xxx' on a 4 byte value and then casting the result to a 8 byte value. Cast the value to the wider type before calling operator 'xxx' to avoid overflow(io.2).
+#pragma warning (disable: 26812)    // [Static Analyzer] The enum type 'xxx' is unscoped. Prefer 'enum class' over 'enum' (Enum.3).
+#endif
+
+// Clang/GCC warnings with -Weverything
+#if defined(__clang__)
+#if __has_warning("-Wunknown-warning-option")
+#pragma clang diagnostic ignored "-Wunknown-warning-option"         // warning: unknown warning group 'xxx'                      // not all warnings are known by all Clang versions and they tend to be rename-happy.. so ignoring warnings triggers new warnings on some configuration. Great!
+#endif
+#pragma clang diagnostic ignored "-Wunknown-pragmas"                // warning: unknown warning group 'xxx'
+#pragma clang diagnostic ignored "-Wold-style-cast"                 // warning: use of old-style cast                            // yes, they are more terse.
+#pragma clang diagnostic ignored "-Wfloat-equal"                    // warning: comparing floating point with == or != is unsafe // storing and comparing against same constants (typically 0.0f) is ok.
+#pragma clang diagnostic ignored "-Wformat-nonliteral"              // warning: format string is not a string literal            // passing non-literal to vsnformat(). yes, user passing incorrect format strings can crash the code.
+#pragma clang diagnostic ignored "-Wsign-conversion"                // warning: implicit conversion changes signedness
+#pragma clang diagnostic ignored "-Wzero-as-null-pointer-constant"  // warning: zero as null pointer constant                    // some standard header variations use #define NULL 0
+#pragma clang diagnostic ignored "-Wdouble-promotion"               // warning: implicit conversion from 'float' to 'double' when passing argument to function  // using printf() is a misery with this as C++ va_arg ellipsis changes float to double.
+#pragma clang diagnostic ignored "-Wenum-enum-conversion"           // warning: bitwise operation between different enumeration types ('XXXFlags_' and 'XXXFlagsPrivate_')
+#pragma clang diagnostic ignored "-Wdeprecated-enum-enum-conversion"// warning: bitwise operation between different enumeration types ('XXXFlags_' and 'XXXFlagsPrivate_') is deprecated
+#pragma clang diagnostic ignored "-Wimplicit-int-float-conversion"  // warning: implicit conversion from 'xxx' to 'float' may lose precision
+#elif defined(__GNUC__)
+#pragma GCC diagnostic ignored "-Wpragmas"                          // warning: unknown option after '#pragma GCC diagnostic' kind
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"                // warning: format not a string literal, format string not checked
+#pragma GCC diagnostic ignored "-Wclass-memaccess"                  // [__GNUC__ >= 8] warning: 'memset/memcpy' clearing/writing an object of type 'xxxx' with no trivial copy-assignment; use assignment or value-initialization instead
+#pragma GCC diagnostic ignored "-Wdeprecated-enum-enum-conversion"  // warning: bitwise operation between different enumeration types ('XXXFlags_' and 'XXXFlagsPrivate_') is deprecated
+#endif
+
+//-------------------------------------------------------------------------
+// Data
+//-------------------------------------------------------------------------
+
+// Widgets
+static const float          DRAGDROP_HOLD_TO_OPEN_TIMER = 0.70f;    // Time for drag-hold to activate items accepting the ImGuiButtonFlags_PressedOnDragDropHold button behavior.
+static const float          DRAG_MOUSE_THRESHOLD_FACTOR = 0.50f;    // Multiplier for the default value of io.MouseDragThreshold to make DragFloat/DragInt react faster to mouse drags.
+
+// Those MIN/MAX values are not define because we need to point to them
+static const signed char    IM_S8_MIN  = -128;
+static const signed char    IM_S8_MAX  = 127;
+static const unsigned char  IM_U8_MIN  = 0;
+static const unsigned char  IM_U8_MAX  = 0xFF;
+static const signed short   IM_S16_MIN = -32768;
+static const signed short   IM_S16_MAX = 32767;
+static const unsigned short IM_U16_MIN = 0;
+static const unsigned short IM_U16_MAX = 0xFFFF;
+static const ImS32          IM_S32_MIN = INT_MIN;    // (-2147483647 - 1), (0x80000000);
+static const ImS32          IM_S32_MAX = INT_MAX;    // (2147483647), (0x7FFFFFFF)
+static const ImU32          IM_U32_MIN = 0;
+static const ImU32          IM_U32_MAX = UINT_MAX;   // (0xFFFFFFFF)
+#ifdef LLONG_MIN
+static const ImS64          IM_S64_MIN = LLONG_MIN;  // (-9223372036854775807ll - 1ll);
+static const ImS64          IM_S64_MAX = LLONG_MAX;  // (9223372036854775807ll);
+#else
+static const ImS64          IM_S64_MIN = -9223372036854775807LL - 1;
+static const ImS64          IM_S64_MAX = 9223372036854775807LL;
+#endif
+static const ImU64          IM_U64_MIN = 0;
+#ifdef ULLONG_MAX
+static const ImU64          IM_U64_MAX = ULLONG_MAX; // (0xFFFFFFFFFFFFFFFFull);
+#else
+static const ImU64          IM_U64_MAX = (2ULL * 9223372036854775807LL + 1);
+#endif
 
 // Forward declarations
 static bool             InputTextFilterCharacter(unsigned int* p_char, ImGuiInputTextFlags flags, ImGuiInputTextCallback callback, void* user_data, ImGuiInputSource input_source);
@@ -285,37 +374,32 @@ namespace ImStb
 } // namespace ImStb
 
 
+//InputFlags to SudokuWidgets
 
-bool SudokuCell(const char* label, char* buf, int buf_size, const ImVec2& size_arg, ImGuiInputTextFlags flags, ImGuiInputTextCallback callback, void* callback_user_data)
+
+
+bool SudokuCell(const char* label, char* buf, int buf_size, const ImVec2& size_arg, ImGuiSudokuCellFlags flags, ImGuiInputTextCallback callback, void* callback_user_data)
 {
     ImGuiWindow* window = ImGui::GetCurrentWindow();
     if (window->SkipItems)
         return false;
 
     IM_ASSERT(buf != NULL && buf_size >= 0);
-    IM_ASSERT(!((flags & ImGuiInputTextFlags_CallbackCompletion) && (flags & ImGuiInputTextFlags_AllowTabInput))); // Can't use both together (they both use tab key)
 
     ImGuiContext& g = *GImGui;
     ImGuiIO& io = g.IO;
     const ImGuiStyle& style = g.Style;
 
-    const bool RENDER_SELECTION_WHEN_INACTIVE = false;
-    const bool is_multiline = (flags & ImGuiInputTextFlags_Multiline) != 0;
-    const bool is_readonly = (flags & ImGuiInputTextFlags_ReadOnly) != 0;
-    const bool is_password = (flags & ImGuiInputTextFlags_Password) != 0;
-    const bool is_undoable = (flags & ImGuiInputTextFlags_NoUndoRedo) == 0;
-    const bool is_resizable = (flags & ImGuiInputTextFlags_CallbackResize) != 0;
+
+    const bool is_readonly = (flags & ImGuiSudokuCellFlags_ReadOnly) != 0;
+    const bool is_resizable = (flags & ImGuiSudokuCellFlags_CallbackResize) != 0;
     if (is_resizable)
         IM_ASSERT(callback != NULL); // Must provide a callback if you set the ImGuiInputTextFlags_CallbackResize flag!
 
-    if (is_multiline) // Can't be multiline
-        return false;
-
     // TODO change size of frame
     const ImGuiID id = window->GetID(label);
-    const ImVec2 label_size = ImGui::CalcTextSize(label, NULL, true);
-    const ImVec2 frame_size = ImGui::CalcItemSize(size_arg, ImGui::CalcItemWidth(), (is_multiline ? g.FontSize * 8.0f : label_size.y) + style.FramePadding.y * 2.0f); // Arbitrary default of 8 lines high for multi-line
-    const ImVec2 total_size = ImVec2(frame_size.x + (label_size.x > 0.0f ? style.ItemInnerSpacing.x + label_size.x : 0.0f), frame_size.y);
+    const ImVec2 frame_size = ImGui::CalcItemSize(size_arg, ImGui::CalcItemWidth(), style.FramePadding.y * 2.0f);
+    const ImVec2 total_size = ImVec2(frame_size.x, frame_size.y);
 
     const ImRect frame_bb(window->DC.CursorPos, window->DC.CursorPos + frame_size);
     const ImRect total_bb(frame_bb.Min, frame_bb.Min + total_size);
@@ -343,16 +427,14 @@ bool SudokuCell(const char* label, char* buf, int buf_size, const ImVec2& size_a
     const bool input_requested_by_nav = (g.ActiveId != id) && ((g.NavActivateInputId == id) || (g.NavActivateId == id && g.NavInputSource == ImGuiInputSource_Keyboard));
 
     const bool user_clicked = hovered && io.MouseClicked[0];
-    const bool user_scroll_finish = is_multiline && state != NULL && g.ActiveId == 0 && g.ActiveIdPreviousFrame == ImGui::GetWindowScrollbarID(draw_window, ImGuiAxis_Y);
-    const bool user_scroll_active = is_multiline && state != NULL && g.ActiveId == ImGui::GetWindowScrollbarID(draw_window, ImGuiAxis_Y);
     bool clear_active_id = false;
     bool select_all = false;
 
-    float scroll_y = is_multiline ? draw_window->Scroll.y : FLT_MAX;
+    float scroll_y = FLT_MAX;
 
-    const bool init_changed_specs = (state != NULL && state->Stb.single_line != !is_multiline);
-    const bool init_make_active = (user_clicked || user_scroll_finish || input_requested_by_nav || input_requested_by_tabbing);
-    const bool init_state = (init_make_active || user_scroll_active);
+    const bool init_changed_specs = (state != NULL && state->Stb.single_line != true);
+    const bool init_make_active = (user_clicked || input_requested_by_nav || input_requested_by_tabbing);
+    const bool init_state = (init_make_active);
     if ((init_state && g.ActiveId != id) || init_changed_specs)
     {
         // Access state even if we don't own it yet.
@@ -386,19 +468,12 @@ bool SudokuCell(const char* label, char* buf, int buf_size, const ImVec2& size_a
         {
             state->ID = id;
             state->ScrollX = 0.0f;
-            stb_textedit_initialize_state(&state->Stb, !is_multiline);
+            stb_textedit_initialize_state(&state->Stb, true);
         }
 
-        if (flags & ImGuiInputTextFlags_AutoSelectAll)
-            select_all = true;
-        if (input_requested_by_nav && (!recycle_state || !(g.NavActivateFlags & ImGuiActivateFlags_TryToPreserveState)))
-            select_all = true;
-        if (input_requested_by_tabbing || (user_clicked && io.KeyCtrl))
-            select_all = true;
+        select_all = true;
 
-
-        if (flags & ImGuiInputTextFlags_AlwaysOverwrite)
-            state->Stb.insert_mode = 1; // stb field name is indeed incorrect (see #2863)
+        state->Stb.insert_mode = 1; // stb field name is indeed incorrect (see #2863)
     }
 
     if (g.ActiveId != id && init_make_active)
@@ -416,10 +491,6 @@ bool SudokuCell(const char* label, char* buf, int buf_size, const ImVec2& size_a
         g.ActiveIdUsingNavInputMask |= (1 << ImGuiNavInput_Cancel);
         ImGui::SetActiveIdUsingKey(ImGuiKey_Home);
         ImGui::SetActiveIdUsingKey(ImGuiKey_End);
-        if (flags & (ImGuiInputTextFlags_CallbackCompletion | ImGuiInputTextFlags_AllowTabInput)) // Disable keyboard tabbing out as we will use the \t character.
-        {
-            ImGui::SetActiveIdUsingKey(ImGuiKey_Tab);
-        }
     }
 
     // We have an edge case if ActiveId was set through another widget (e.g. widget being swapped), clear id immediately (don't wait until the end of the function)
@@ -431,8 +502,8 @@ bool SudokuCell(const char* label, char* buf, int buf_size, const ImVec2& size_a
         clear_active_id = true;
 
     // Lock the decision of whether we are going to take the path displaying the cursor or selection
-    const bool render_cursor = (g.ActiveId == id) || (state && user_scroll_active);
-    bool render_selection = state && (state->HasSelection() || select_all) && (RENDER_SELECTION_WHEN_INACTIVE || render_cursor);
+    const bool render_cursor = (g.ActiveId == id);
+    bool render_selection = state && (state->HasSelection() || select_all) && render_cursor;
     bool value_changed = false;
     bool enter_pressed = false;
 
@@ -468,7 +539,7 @@ bool SudokuCell(const char* label, char* buf, int buf_size, const ImVec2& size_a
 
         // Edit in progress
         const float mouse_x = (io.MousePos.x - frame_bb.Min.x - style.FramePadding.x) + state->ScrollX;
-        const float mouse_y = (is_multiline ? (io.MousePos.y - draw_window->DC.CursorPos.y) : (g.FontSize * 0.5f));
+        const float mouse_y = (g.FontSize * 0.5f);
 
         const bool is_osx = io.ConfigMacOSXBehaviors;
         if (select_all)
@@ -528,12 +599,6 @@ bool SudokuCell(const char* label, char* buf, int buf_size, const ImVec2& size_a
         // We except backends to emit a Tab key but some also emit a Tab character which we ignore (#2467, #1336)
         // (For Tab and Enter: Win32/SFML/Allegro are sending both keys and chars, GLFW and SDL are only sending keys. For Space they all send all threes)
         const bool ignore_char_inputs = (io.KeyCtrl && !io.KeyAlt) || (is_osx && io.KeySuper);
-        if ((flags & ImGuiInputTextFlags_AllowTabInput) && ImGui::IsKeyPressed(ImGuiKey_Tab) && !ignore_char_inputs && !io.KeyShift && !is_readonly)
-        {
-            unsigned int c = '\t'; // Insert TAB
-            if (InputTextFilterCharacter(&c, flags, callback, callback_user_data, ImGuiInputSource_Keyboard))
-                state->OnKeyPressed((int)c);
-        }
 
         // Process regular text input (before we check for Return because using some IME will effectively send a Return?)
         // We ignore CTRL inputs, but need to allow ALT+CTRL as some keyboards (e.g. German) use AltGR (which _is_ Alt+Ctrl) to input certain characters.
@@ -573,11 +638,11 @@ bool SudokuCell(const char* label, char* buf, int buf_size, const ImVec2& size_a
         const bool is_shift_key_only = (io.KeyMods == ImGuiModFlags_Shift);
         const bool is_shortcut_key = g.IO.ConfigMacOSXBehaviors ? (io.KeyMods == ImGuiModFlags_Super) : (io.KeyMods == ImGuiModFlags_Ctrl);
 
-        const bool is_cut   = ((is_shortcut_key && ImGui::IsKeyPressed(ImGuiKey_X)) || (is_shift_key_only && ImGui::IsKeyPressed(ImGuiKey_Delete))) && !is_readonly && !is_password && (!is_multiline || state->HasSelection());
-        const bool is_copy  = ((is_shortcut_key && ImGui::IsKeyPressed(ImGuiKey_C)) || (is_ctrl_key_only  && ImGui::IsKeyPressed(ImGuiKey_Insert))) && !is_password && (!is_multiline || state->HasSelection());
+        const bool is_cut   = ((is_shortcut_key && ImGui::IsKeyPressed(ImGuiKey_X)) || (is_shift_key_only && ImGui::IsKeyPressed(ImGuiKey_Delete))) && !is_readonly;
+        const bool is_copy  = ((is_shortcut_key && ImGui::IsKeyPressed(ImGuiKey_C)) || (is_ctrl_key_only  && ImGui::IsKeyPressed(ImGuiKey_Insert)));
         const bool is_paste = ((is_shortcut_key && ImGui::IsKeyPressed(ImGuiKey_V)) || (is_shift_key_only && ImGui::IsKeyPressed(ImGuiKey_Insert))) && !is_readonly;
-        const bool is_undo  = ((is_shortcut_key && ImGui::IsKeyPressed(ImGuiKey_Z)) && !is_readonly && is_undoable);
-        const bool is_redo  = ((is_shortcut_key && ImGui::IsKeyPressed(ImGuiKey_Y)) || (is_osx_shift_shortcut && ImGui::IsKeyPressed(ImGuiKey_Z))) && !is_readonly && is_undoable;
+        const bool is_undo  = ((is_shortcut_key && ImGui::IsKeyPressed(ImGuiKey_Z)) && !is_readonly);
+        const bool is_redo  = ((is_shortcut_key && ImGui::IsKeyPressed(ImGuiKey_Y)) || (is_osx_shift_shortcut && ImGui::IsKeyPressed(ImGuiKey_Z))) && !is_readonly;
 
         // We allow validate/cancel with Nav source (gamepad) to makes it easier to undo an accidental NavInput press with no keyboard wired, but otherwise it isn't very useful.
         const bool is_validate_enter = ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter);
@@ -602,7 +667,6 @@ bool SudokuCell(const char* label, char* buf, int buf_size, const ImVec2& size_a
         }
         else if (is_validate_enter)
         {
-            bool ctrl_enter_for_new_line = (flags & ImGuiInputTextFlags_CtrlEnterForNewLine) != 0;
 
             enter_pressed = clear_active_id = true;
 
@@ -682,7 +746,7 @@ bool SudokuCell(const char* label, char* buf, int buf_size, const ImVec2& size_a
         }
 
         // Update render selection flag after events have been handled, so selection highlight can be displayed during the same frame.
-        render_selection |= state->HasSelection() && (RENDER_SELECTION_WHEN_INACTIVE || render_cursor);
+        render_selection |= state->HasSelection() && render_cursor;
     }
 
     // Process callbacks and apply result back to user's buffer.
@@ -705,14 +769,14 @@ bool SudokuCell(const char* label, char* buf, int buf_size, const ImVec2& size_a
                     w_text.resize(ImTextCountCharsFromUtf8(apply_new_text, apply_new_text + apply_new_text_length) + 1);
                     ImTextStrFromUtf8(w_text.Data, w_text.Size, apply_new_text, apply_new_text + apply_new_text_length);
                 }
-                stb_textedit_replace(state, &state->Stb, w_text.Data, (apply_new_text_length > 0) ? (w_text.Size - 1) : 0);
+                ImStb::stb_textedit_replace(state, &state->Stb, w_text.Data, (apply_new_text_length > 0) ? (w_text.Size - 1) : 0);
             }
         }
 
         // When using 'ImGuiInputTextFlags_EnterReturnsTrue' as a special case we reapply the live buffer back to the input buffer before clearing ActiveId, even though strictly speaking it wasn't modified on this frame.
         // If we didn't do that, code like InputInt() with ImGuiInputTextFlags_EnterReturnsTrue would fail.
         // This also allows the user to use InputText() with ImGuiInputTextFlags_EnterReturnsTrue without maintaining any user-side storage (please note that if you use this property along ImGuiInputTextFlags_CallbackResize you can end up with your temporary string object unnecessarily allocating once a frame, either store your string data, either if you don't then don't use ImGuiInputTextFlags_CallbackResize).
-        bool apply_edit_back_to_user_buffer = !cancel_edit || (enter_pressed && (flags & ImGuiInputTextFlags_EnterReturnsTrue) != 0);
+        bool apply_edit_back_to_user_buffer = !cancel_edit;
         if (apply_edit_back_to_user_buffer)
         {
             // Apply new value immediately - copy modified buffer back
@@ -727,19 +791,14 @@ bool SudokuCell(const char* label, char* buf, int buf_size, const ImVec2& size_a
             }
 
             // User callback
-            if ((flags & (ImGuiInputTextFlags_CallbackCompletion | ImGuiInputTextFlags_CallbackHistory | ImGuiInputTextFlags_CallbackEdit | ImGuiInputTextFlags_CallbackAlways)) != 0)
+            if ((flags & (ImGuiInputTextFlags_CallbackHistory | ImGuiInputTextFlags_CallbackEdit | ImGuiInputTextFlags_CallbackAlways)) != 0)
             {
                 IM_ASSERT(callback != NULL);
 
                 // The reason we specify the usage semantic (Completion/History) is that Completion needs to disable keyboard TABBING at the moment.
                 ImGuiInputTextFlags event_flag = 0;
                 ImGuiKey event_key = ImGuiKey_None;
-                if ((flags & ImGuiInputTextFlags_CallbackCompletion) != 0 && ImGui::IsKeyPressed(ImGuiKey_Tab))
-                {
-                    event_flag = ImGuiInputTextFlags_CallbackCompletion;
-                    event_key = ImGuiKey_Tab;
-                }
-                else if ((flags & ImGuiInputTextFlags_CallbackHistory) != 0 && ImGui::IsKeyPressed(ImGuiKey_UpArrow))
+                if ((flags & ImGuiInputTextFlags_CallbackHistory) != 0 && ImGui::IsKeyPressed(ImGuiKey_UpArrow))
                 {
                     event_flag = ImGuiInputTextFlags_CallbackHistory;
                     event_key = ImGuiKey_UpArrow;
@@ -854,7 +913,7 @@ bool SudokuCell(const char* label, char* buf, int buf_size, const ImVec2& size_a
 
 
     const ImVec4 clip_rect(frame_bb.Min.x, frame_bb.Min.y, frame_bb.Min.x + inner_size.x, frame_bb.Min.y + inner_size.y); // Not using frame_bb.Max because we have adjusted size
-    ImVec2 draw_pos = is_multiline ? draw_window->DC.CursorPos : frame_bb.Min + style.FramePadding;
+    ImVec2 draw_pos = frame_bb.Min + style.FramePadding;
     ImVec2 text_size(0.0f, 0.0f);
 
     // Set upper limit of single-line InputTextEx() at 2 million characters strings. The current pathological worst case is a long line
@@ -901,7 +960,7 @@ bool SudokuCell(const char* label, char* buf, int buf_size, const ImVec2& size_a
 
             // Iterate all lines to find our line numbers
             // In multi-line mode, we never exit the loop until all lines are counted, so add one extra to the searches_remaining counter.
-            searches_remaining += is_multiline ? 1 : 0;
+            searches_remaining += 0;
             int line_count = 0;
             //for (const ImWchar* s = text_begin; (s = (const ImWchar*)wcschr((const wchar_t*)s, (wchar_t)'\n')) != NULL; s++)  // FIXME-OPT: Could use this when wchar_t are 16-bit
             for (const ImWchar* s = text_begin; *s != 0; s++)
@@ -931,19 +990,7 @@ bool SudokuCell(const char* label, char* buf, int buf_size, const ImVec2& size_a
         if (render_cursor && state->CursorFollow)
         {
             // Horizontal scroll in chunks of quarter width
-            if (!(flags & ImGuiInputTextFlags_NoHorizontalScroll))
-            {
-                const float scroll_increment_x = inner_size.x * 0.25f;
-                const float visible_width = inner_size.x - style.FramePadding.x;
-                if (cursor_offset.x < state->ScrollX)
-                    state->ScrollX = IM_FLOOR(ImMax(0.0f, cursor_offset.x - scroll_increment_x));
-                else if (cursor_offset.x - visible_width >= state->ScrollX)
-                    state->ScrollX = IM_FLOOR(cursor_offset.x - visible_width + scroll_increment_x);
-            }
-            else
-            {
-                state->ScrollX = 0.0f;
-            }
+            state->ScrollX = 0.0f;
 
             state->CursorFollow = false;
         }
@@ -956,8 +1003,8 @@ bool SudokuCell(const char* label, char* buf, int buf_size, const ImVec2& size_a
             const ImWchar* text_selected_end = text_begin + ImMax(state->Stb.select_start, state->Stb.select_end);
 
             ImU32 bg_color = ImGui::GetColorU32(ImGuiCol_TextSelectedBg, render_cursor ? 1.0f : 0.6f); // FIXME: current code flow mandate that render_cursor is always true here, we are leaving the transparent one for tests.
-            float bg_offy_up = is_multiline ? 0.0f : -1.0f;    // FIXME: those offsets should be part of the style? they don't play so well with multi-line selection.
-            float bg_offy_dn = is_multiline ? 0.0f : 2.0f;
+            float bg_offy_up = -1.0f;    // FIXME: those offsets should be part of the style? they don't play so well with multi-line selection.
+            float bg_offy_dn = 2.0f;
             ImVec2 rect_pos = draw_pos + select_start_offset - draw_scroll;
             for (const ImWchar* p = text_selected_begin; p < text_selected_end; )
             {
@@ -1018,22 +1065,5 @@ bool SudokuCell(const char* label, char* buf, int buf_size, const ImVec2& size_a
         /* ---- Something was removed here ---*/
     }
 
-    // Log as text
-    if (g.LogEnabled && !is_password)
-    {
-        ImGui::LogSetNextTextDecoration("{", "}");
-        ImGui::LogRenderedText(&draw_pos, buf_display, buf_display_end);
-    }
-
-    if (label_size.x > 0)
-        ImGui::RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, frame_bb.Min.y + style.FramePadding.y), label);
-
-    if (value_changed && !(flags & ImGuiInputTextFlags_NoMarkEdited))
-        ImGui::MarkItemEdited(id);
-
-    IMGUI_TEST_ENGINE_ITEM_INFO(id, label, g.LastItemData.StatusFlags);
-    if ((flags & ImGuiInputTextFlags_EnterReturnsTrue) != 0)
-        return enter_pressed;
-    else
-        return value_changed;
+    return value_changed;
 }

@@ -78,7 +78,6 @@ int main(){
     //* --- test bed for sudoku *--//
 
     Sudoku sudoku;
-    sudoku.Construct_Sudoku();
     sudoku.print_sudoku();
 
 
