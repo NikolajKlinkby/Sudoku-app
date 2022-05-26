@@ -75,9 +75,9 @@ void Sudoku::set_rnd_number_list()
 
 void Sudoku::print_rnd_number_list()
 {
-    for(int i = 0; i < 9; i++)
+    for(int i : rnd_number_list)
     {
-        std::cout << rnd_number_list[i] << " ";
+        std::cout << i << " ";
     }
 }
 
@@ -304,8 +304,13 @@ bool Sudoku::solvable() {
         }
     }
     else if (hidden_single()){
-        if (solvable()){
+        if (check_grid()){
             return true;
+        }
+        else {
+            if (solvable()) {
+                return true;
+            }
         }
     }
     return false;
