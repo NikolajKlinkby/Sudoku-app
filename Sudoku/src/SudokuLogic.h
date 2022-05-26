@@ -27,17 +27,6 @@ public:
 };
 
 
-
-class AnnotationTensor{
-private:
-    /* --- Attributes --- */
-    int annotation_data[9][9];
-public:
-    AnnotationTensor(int (&grid)[9][9]);
-    void set_annotation(int row, int col, int number);
-    void remove_annotation(int row, int col, int number);
-    int count_annotations(int row, int col);
-    void update(int row, int col, int number);
-};
+bool is_possible(int row, int col, int number, int (&sudoku_grid)[9][9]);
 
 #endif //SUDOKULOGIC_H
