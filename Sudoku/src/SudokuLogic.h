@@ -22,6 +22,7 @@ public:
     void fill_annotation(int (&grid)[9][9]);
     void set_annotation(int row, int col, int number);
     void remove_annotation(int row, int col, int number);
+    void clear_cell(int row, int col);
     int get_annotation_count(int row, int col);
     void update(int row, int col, int number);
     bool has_annotation(int row, int col, int number);

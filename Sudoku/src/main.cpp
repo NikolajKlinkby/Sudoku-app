@@ -2,6 +2,12 @@
 #include <iostream>
 #include <algorithm>
 #include "SudokuLogic.h"
+#include <iostream>
+#include <cmath>
+#include <vector>
+#include <random>
+#include <utility>
+#include <time.h>
 
 #include <imgui.h>
 #include "imgui_impl_sdl.h"
@@ -40,7 +46,11 @@ int main(){
     srand(time(NULL));
 
     Sudoku my_sudoku;
-    int nr_of_set = 50;
+    int nr_of_set = 60;
+    std::cout << "### PRINTING FILLED GRID ###" << std::endl;
+    my_sudoku.print_sudoku();
+    std::cout << std::endl;
+    std::cout << "### PRINTING FINAL GRID ###" << std::endl;
     my_sudoku.set_sudoku(nr_of_set);
     my_sudoku.print_sudoku();
 

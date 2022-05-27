@@ -66,21 +66,33 @@ std::vector<int> AnnotationTensor::get_annotations(int row, int col){
     }
     return ret;
 }
+
+void AnnotationTensor::clear_cell(int row, int col){
+    for (int number = 1; number < 10; ++number) {
+        remove_annotation(row,col,number);
+    }
+}
+
 //Removes all occurrences of number in annotations of entire row, coloumn and square
 void AnnotationTensor::update(int row, int col, int number) {
+    //Remove all annotation of set number from the row
     for(int row_idx = 0; row_idx < 9; row_idx++) {
         remove_annotation(row_idx,col,number);
     }
+    //Remove all annotation of set number from the col
     for(int col_idx = 0; col_idx < 9; col_idx++) {
         remove_annotation(row,col_idx,number);
     }
+    //Remove all annotation of set number from the square
     int row_corner = row/3;
     int col_corner = col/3;
     for(int row_idx = 0; row_idx < 3; row_idx++) {
         for(int col_idx = 0; col_idx < 3; col_idx++) {
-            remove_annotation(row_corner+row_idx,col_corner+col_idx,number);
+            remove_annotation(row_corner*3+row_idx,col_corner*3+col_idx,number);
         }
     }
+    //Remove all annotations from cell
+    clear_cell(row,col);
 }
 
 ////////////////// SUDOKU CLASS FUNCTIONS //////////////////
@@ -90,7 +102,6 @@ bool Sudoku::naked_single(){
     bool succes = false;
     for (int row = 0; row < 9; row++) {
         for (int col = 0; col < 9; col++) {
-            std::cout << "Row, Col: " << std::
             if (annotation_tensor.get_annotation_count(row,col) == 1){
                 for (int number = 1; number < 10; ++number) {
                     if (annotation_tensor.has_annotation(row,col,number)){
