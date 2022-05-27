@@ -17,18 +17,164 @@ AnnotationTensor::AnnotationTensor() {
         }
     }
 }
-
+AnnotationTensor::AnnotationTensor(int (&grid)[9][9]) {
+    for(auto & row : annotation_data){
+        for(int & col : row){
+            col = 0;
+        }
+    }
+    fill_annotation(grid);
+}
+void AnnotationTensor::fill_annotation(int (&grid)[9][9]) {
+    for(int row = 0; row < 9; row++){
+        for(int col = 0; col < 9; col++){
+            if (grid[row][col] == 0){
+                for (int number = 1; number < 10; ++number) {
+                    if (is_possible(row,col,number,grid)){
+                        if (row == 0 && col == 0){
+                        }
+                        set_annotation(row, col, number);
+                    }
+                }
+            }
+        }
+    }
+}
 void AnnotationTensor::set_annotation(int row, int col, int number) {
-    annotation_data[row][col] |= 1 << number;
+    //AND operation with tensor element and 2^number checks if no annotation exists for the number @ row, col
+    if ((annotation_data[row][col] & (1 << (number-1))) == 0) { //Make sure annotation ISN'T set
+        annotation_data[row][col] += 1 << 9; //Add one to annotation count
+        annotation_data[row][col] |= 1 << (number-1);
+    }
 }
 void AnnotationTensor::remove_annotation(int row, int col, int number) {
-    annotation_data[row][col] 
+    if ((annotation_data[row][col] & (1 << (number-1))) != 0){ //Make sure annotation IS set
+        annotation_data[row][col] -= 1 << 9; //Subtract one from annotation count
+        annotation_data[row][col] ^= 1 << (number-1);
+    }
 }
-int AnnotationTensor::count_annotations(int row, int col) {
+int AnnotationTensor::get_annotation_count(int row, int col) {
     return annotation_data[row][col] >> 9;
 }
+bool AnnotationTensor::has_annotation(int row, int col, int number){
+    return (annotation_data[row][col] & (1 << (number-1))) != 0;
+}
+std::vector<int> AnnotationTensor::get_annotations(int row, int col){
+    std::vector<int> ret;
+    for(int num = 1; num <10; num++){
+        if(has_annotation(row, col, num)) ret.emplace_back(num);
+    }
+    return ret;
+}
+//Removes all occurrences of number in annotations of entire row, coloumn and square
 void AnnotationTensor::update(int row, int col, int number) {
-    for(int )
+    for(int row_idx = 0; row_idx < 9; row_idx++) {
+        remove_annotation(row_idx,col,number);
+    }
+    for(int col_idx = 0; col_idx < 9; col_idx++) {
+        remove_annotation(row,col_idx,number);
+    }
+    int row_corner = row/3;
+    int col_corner = col/3;
+    for(int row_idx = 0; row_idx < 3; row_idx++) {
+        for(int col_idx = 0; col_idx < 3; col_idx++) {
+            remove_annotation(row_corner+row_idx,col_corner+col_idx,number);
+        }
+    }
+}
+
+////////////////// SUDOKU CLASS FUNCTIONS //////////////////
+
+/* ---- Sudoku logic ---- */
+bool Sudoku::naked_single(){
+    bool succes = false;
+    for (int row = 0; row < 9; row++) {
+        for (int col = 0; col < 9; col++) {
+            std::cout << "Row, Col: " << std::
+            if (annotation_tensor.get_annotation_count(row,col) == 1){
+                for (int number = 1; number < 10; ++number) {
+                    if (annotation_tensor.has_annotation(row,col,number)){
+                        annotation_tensor.update(row,col,number);
+                        sudoku_array[row][col] = number;
+                    }
+                }
+                succes = true;
+            }
+        }
+    }
+    return succes;
+}
+
+bool Sudoku::hidden_single(){
+    bool succes = false;
+    int count;
+    int index_row;
+    int index_col;
+
+    for (int number = 1; number < 10; number++) {
+
+        //Search every row for hidden singles
+        for (int row = 0; row < 9; ++row) {
+
+            count = 0;
+            for (int col = 0; col < 9; ++col) {
+                if (annotation_tensor.has_annotation(row,col,number)){
+                    count += 0;
+                    index_col = col;
+                }
+            }
+            //If hidden single found update annotation and set single
+            if (count == 1){
+                annotation_tensor.update(row,index_col,number);
+                sudoku_array[row][index_col] = number;
+                succes = true;
+            }
+        }
+
+        //Search every col for hidden singles
+        for (int col = 0; col < 9; ++col) {
+
+            count = 0;
+            for (int row = 0; row < 9; ++row) {
+                if (annotation_tensor.has_annotation(row,col,number)){
+                    count += 0;
+                    index_row = row;
+                }
+            }
+            //If hidden single found update annotation and set single
+            if (count == 1){
+                annotation_tensor.update(index_row,col,number);
+                sudoku_array[index_row][col] = number;
+                succes = true;
+            }
+        }
+
+        //Search every square for hidden singles
+        for (int square_row = 0; square_row < 3; ++square_row) {
+            for (int square_col = 0; square_col < 3; ++square_col) {
+
+                count = 0;
+                for (int row = 0; row < 3; ++row) {
+                    for (int col = 0; col < 3; ++col) {
+                        if (annotation_tensor.has_annotation(square_row*3 + row,square_col*3 + col,number)){
+                            count += 0;
+                            index_row = row;
+                            index_row = col;
+                        }
+                    }
+                }
+                //If hidden single found update annotation and set single
+                if (count == 1){
+                    annotation_tensor.update(square_row*3 + index_row,square_col*3 + index_col,number);
+                    sudoku_array[square_row*3 + index_row][square_col*3 + index_col] = number;
+                    succes = true;
+                }
+
+            }
+        }
+
+    }
+    return succes;
 }
 
 
@@ -72,7 +218,6 @@ void Sudoku::set_rnd_number_list()
     }
 }
 
-
 void Sudoku::print_rnd_number_list()
 {
     for(int i : rnd_number_list)
@@ -87,7 +232,7 @@ void Sudoku::set_position_list()
     {
         for(int col = 0; col < 9; col++)
         {
-            position_list.push_back(std::make_pair(row,col));
+            position_list.emplace_back(std::make_pair(row,col));
         }
     }
 }
@@ -251,9 +396,8 @@ void Sudoku::crappy_set_sudoku()
 
         // Counting number of solutions
         int solution_counter = 0;
-        for(int i = 0; i < 9; i++)
+        for(int number : rnd_number_list)
         {
-            int number = rnd_number_list[i];
             if(is_possible(row,col,number))
             {
                 solution_counter++;
@@ -265,7 +409,6 @@ void Sudoku::crappy_set_sudoku()
         {
             sudoku_array[row][col] = currently_removed;
             pos_nr++;
-
         }
             // perfect! still only one solution
         else if (solution_counter == 1)
@@ -345,8 +488,8 @@ void Sudoku::set_sudoku(int remaining_numbers)
         }
         else
         {
+            std::cout << "not solvable" << std::endl;
             sudoku_array[current_position.first][current_position.second] = number_buff;
-
             annotation_tensor.fill_annotation(sudoku_array);
         }
         counter++;
