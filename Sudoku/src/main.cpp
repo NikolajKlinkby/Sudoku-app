@@ -46,7 +46,7 @@ int main(){
     srand(time(NULL));
 
     Sudoku my_sudoku;
-    int nr_of_set = 60;
+    int nr_of_set = 40;
     std::cout << "### PRINTING FILLED GRID ###" << std::endl;
     my_sudoku.print_sudoku();
     std::cout << std::endl;

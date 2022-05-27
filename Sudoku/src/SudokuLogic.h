@@ -21,12 +21,13 @@ public:
     AnnotationTensor(int (&grid)[9][9]);
     void fill_annotation(int (&grid)[9][9]);
     void set_annotation(int row, int col, int number);
-    void remove_annotation(int row, int col, int number);
+    bool remove_annotation(int row, int col, int number);
     void clear_cell(int row, int col);
     int get_annotation_count(int row, int col);
     void update(int row, int col, int number);
     bool has_annotation(int row, int col, int number);
     std::vector<int> get_annotations(int row, int col);
+    int get_data(int row, int col);
 };
 
 class Sudoku {
@@ -34,6 +35,8 @@ private:
     /* --- Functions --- */
     bool naked_single();
     bool hidden_single();
+    bool naked_cells(int start, int end);
+    bool hidden_pair();
     /* --- Attributes --- */
 
 public:
@@ -82,5 +85,6 @@ public:
 };
 
 bool is_possible(int row, int col, int number, int (&sudoku_grid)[9][9]);
+void erase_value(std::vector<int> vec,int val);
 
 #endif //SUDOKULOGIC_H

@@ -5,6 +5,7 @@
 #include <vector>
 #include <random>
 #include <utility>
+#include <assert.h>
 
 
 ////////////////// ANNOTATION TENSOR CLASS FUNCTIONS //////////////////
@@ -47,11 +48,14 @@ void AnnotationTensor::set_annotation(int row, int col, int number) {
         annotation_data[row][col] |= 1 << (number-1);
     }
 }
-void AnnotationTensor::remove_annotation(int row, int col, int number) {
-    if ((annotation_data[row][col] & (1 << (number-1))) != 0){ //Make sure annotation IS set
+bool AnnotationTensor::remove_annotation(int row, int col, int number) {
+    bool success = false;
+    success = (annotation_data[row][col] & (1 << (number-1))) != 0; //Make sure annotation IS set
+    if (success){
         annotation_data[row][col] -= 1 << 9; //Subtract one from annotation count
         annotation_data[row][col] ^= 1 << (number-1);
     }
+    return success;
 }
 int AnnotationTensor::get_annotation_count(int row, int col) {
     return annotation_data[row][col] >> 9;
@@ -66,11 +70,12 @@ std::vector<int> AnnotationTensor::get_annotations(int row, int col){
     }
     return ret;
 }
+int AnnotationTensor::get_data(int row, int col){
+    return annotation_data[row][col];
+}
 
 void AnnotationTensor::clear_cell(int row, int col){
-    for (int number = 1; number < 10; ++number) {
-        remove_annotation(row,col,number);
-    }
+    annotation_data[row][col] & 0;
 }
 
 //Removes all occurrences of number in annotations of entire row, coloumn and square
@@ -99,7 +104,7 @@ void AnnotationTensor::update(int row, int col, int number) {
 
 /* ---- Sudoku logic ---- */
 bool Sudoku::naked_single(){
-    bool succes = false;
+    bool success = false;
     for (int row = 0; row < 9; row++) {
         for (int col = 0; col < 9; col++) {
             if (annotation_tensor.get_annotation_count(row,col) == 1){
@@ -109,11 +114,11 @@ bool Sudoku::naked_single(){
                         sudoku_array[row][col] = number;
                     }
                 }
-                succes = true;
+                success = true;
             }
         }
     }
-    return succes;
+    return success;
 }
 
 bool Sudoku::hidden_single(){
@@ -130,7 +135,7 @@ bool Sudoku::hidden_single(){
             count = 0;
             for (int col = 0; col < 9; ++col) {
                 if (annotation_tensor.has_annotation(row,col,number)){
-                    count += 0;
+                    count++;
                     index_col = col;
                 }
             }
@@ -148,7 +153,7 @@ bool Sudoku::hidden_single(){
             count = 0;
             for (int row = 0; row < 9; ++row) {
                 if (annotation_tensor.has_annotation(row,col,number)){
-                    count += 0;
+                    count++;
                     index_row = row;
                 }
             }
@@ -168,7 +173,7 @@ bool Sudoku::hidden_single(){
                 for (int row = 0; row < 3; ++row) {
                     for (int col = 0; col < 3; ++col) {
                         if (annotation_tensor.has_annotation(square_row*3 + row,square_col*3 + col,number)){
-                            count += 0;
+                            count++;
                             index_row = row;
                             index_row = col;
                         }
@@ -188,6 +193,112 @@ bool Sudoku::hidden_single(){
     return succes;
 }
 
+bool Sudoku::naked_cells(int start, int end) {
+    if(end < start || start < 2 || end > 5){
+        std::cout << "End has to be bigger than start" << std::endl;
+        std::cout << "Start must be 2 or higher" << std::endl;
+        std::cout << "End can't be bigger than 5" << std::endl;
+        assert(true);
+    }
+
+    int count;
+    std::vector<int> indices;
+    std::vector<int> loop_indices;
+    int row_corner;
+    int col_corner;
+    bool success = false;
+    // Check all cells
+    for (int row = 0; row < 9; ++row) {
+        for (int col = 0; col < 9; ++col) {
+
+            for (int i = start; start <= end; start++) {
+                //Only check cells that have two or more annotations
+                if (annotation_tensor.get_annotation_count(row, col) == i) {
+
+                    //Check for pairs in col
+                    indices = {0,1,2,3,4,5,6,7,8};
+                    erase_value(indices,row);
+                    count = 1;
+                    for (int remaining_row = row + 1; remaining_row < 9; ++remaining_row) {
+                        //Check if the annotation is the same
+                        if (annotation_tensor.get_data(row, col) == annotation_tensor.get_data(remaining_row, col)) {
+                            count++; //Pair found!
+                            erase_value(indices, remaining_row);
+                        }
+                    }
+                    //Remove annotations from the rest of the col
+                    if (count == i) {
+                        //Only try to remove from cells that are not the pair
+                        for (auto & rm_row : indices) {
+                            //Remove the annotations and return success if
+                            for (auto &number: annotation_tensor.get_annotations(row, col)) {
+                                if (annotation_tensor.remove_annotation(rm_row, col, number)) {
+                                    success = true;
+                                }
+                            }
+                        }
+                    }
+
+                    //Check for pair in row
+                    indices = {0,1,2,3,4,5,6,7,8};
+                    erase_value(indices,col);
+                    count = 1;
+                    for (int remaining_col = col + 1; remaining_col < 9; ++remaining_col) {
+                        //Check if the annotation is the same
+                        if (annotation_tensor.get_data(row, col) == annotation_tensor.get_data(row, remaining_col)) {
+                            count++; //Pair found!
+                            erase_value(indices, remaining_col);
+                        }
+                    }
+                    //Remove annotations from the rest of the row
+                    if (count == i) {
+                        //Only try to remove from cells that are not the pair
+                        for (auto & rm_col : indices) {
+                            //Remove the annotations and return success if
+                            for (auto &number: annotation_tensor.get_annotations(row, col)) {
+                                if (annotation_tensor.remove_annotation(row, rm_col, number)) {
+                                    success = true;
+                                }
+                            }
+                        }
+                    }
+
+                    //Check for pair in square
+                    row_corner = (row / 3) * 3;
+                    col_corner = (col / 3) * 3;
+
+                    indices = {0,1,2,3,4,5,6,7,8};
+                    loop_indices = {0,1,2,3,4,5,6,7,8};
+                    erase_value(indices,(row-row_corner)*3+col-col_corner);
+                    erase_value(loop_indices,(row-row_corner)*3+col-col_corner);
+
+                    count = 1;
+                    for (auto & index : loop_indices) {
+                        if (annotation_tensor.get_data(row,col) ==
+                            annotation_tensor.get_data(row_corner + index/3,col_corner + index % 3)) {
+                            //Pair found!
+                            count++;
+                            erase_value(indices,index);
+                        }
+                    }
+                    //Remove annotations from the rest of the square
+                    if (count == i) {
+                        for (auto & rm_index : indices ) {
+                            //Remove the annotations and return success if
+                            for (auto &number: annotation_tensor.get_annotations(row, col)) {
+                                if (annotation_tensor.remove_annotation(row_corner + rm_index/3,col_corner + rm_index % 3,number)) {
+                                    success = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return success;
+}
 
 /* -- Member Functions --*/
 void Sudoku::initialize_sudoku() {
@@ -366,13 +477,20 @@ void Sudoku::print_sudoku(int array[9][9])
         }
         for(int j = 0; j < 9; j++)
         {
-            if(j == 3 || j == 6)
-            {
-                std::cout << "| " << array[i][j] << " ";
+            if(j == 3 || j == 6) {
+                if (array[i][j] == 0){
+                    std::cout << "|   ";
+                }
+                else {
+                    std::cout << "| " << array[i][j] << " ";
+                }
             }
-            else
-            {
-                std::cout << " " << array[i][j] << " ";
+            else {
+                if (array[i][j] == 0) {
+                    std::cout << "   ";
+                } else {
+                    std::cout << " " << array[i][j] << " ";
+                }
             }
         }
         std::cout << "\n";
@@ -447,6 +565,8 @@ std::pair<int,int> Sudoku::random_walk()
 }
 
 bool Sudoku::solvable() {
+    // Check for naked singles and set them
+    // If grid is complete, stop and return true.
     if (naked_single()){
         if (check_grid()){
             return true;
@@ -457,14 +577,22 @@ bool Sudoku::solvable() {
             }
         }
     }
+        //Check for hidden singles and set them
     else if (hidden_single()){
-        if (check_grid()){
+        if (solvable()) {
             return true;
         }
-        else {
-            if (solvable()) {
-                return true;
-            }
+    }
+        //Check for naked pairs and triples
+    else if (naked_cells(2,3)){
+        if (solvable()){
+            return true;
+        }
+    }
+        //Check for naked quadruples
+    else if (naked_cells(4,4)){
+        if (solvable()){
+            return true;
         }
     }
     return false;
@@ -546,4 +674,8 @@ bool is_possible(int row, int col, int number, int (&sudoku_grid)[9][9])
     }
     // If everything is ok
     return true;
+}
+
+void erase_value(std::vector<int> vec, int val) {
+    vec.erase(std::remove(vec.begin(), vec.end(), val), vec.end());
 }
