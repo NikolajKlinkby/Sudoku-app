@@ -36,7 +36,7 @@ private:
     bool naked_single();
     bool hidden_single();
     bool naked_cells(int start, int end);
-    bool hidden_pair();
+    bool hidden_cells(int start, int end);
     /* --- Attributes --- */
 
 public:
@@ -86,5 +86,6 @@ public:
 
 bool is_possible(int row, int col, int number, int (&sudoku_grid)[9][9]);
 void erase_value(std::vector<int> vec,int val);
+void all_unique_permutations(std::vector<int> & possible, std::vector<int> & combination, int n, int current_pos);
 
 #endif //SUDOKULOGIC_H

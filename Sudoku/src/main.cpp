@@ -23,25 +23,6 @@ int main(){
 
     //* --- Test bed for sudoku *--//
 
-    //Sudoku my_sudoku;
-    //my_sudoku.set_sudoku();
-    //std::cout << "\n";
-    //std::cout << "##### PRINTING SUDOKU ##### " << "\n";
-    //my_sudoku.print_sudoku(my_sudoku.sudoku_array);
-    //std::cout << "\n";
-    //std::cout << "### PRINTING SOLVED SUDOKU ###  " << "\n";
-    //my_sudoku.print_sudoku(my_sudoku.solved_sudoku_array);
-
-    int test_grid[9][9] = {{0,2,3,0,0,0,0,0,0},
-                           {0,2,3,0,0,0,0,0,0},
-                           {0,2,3,0,0,0,0,0,0},
-                           {0,2,3,0,0,0,0,0,0},
-                           {0,2,3,0,0,0,0,0,0},
-                           {0,2,3,0,0,0,0,0,0},
-                           {0,2,3,0,0,0,0,0,0},
-                           {0,2,3,0,0,0,0,0,0},
-                           {0,2,3,0,0,0,4,0,6}};
-
     // Setting seed for RNG globally
     srand(time(NULL));
 

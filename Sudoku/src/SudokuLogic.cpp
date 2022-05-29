@@ -194,6 +194,8 @@ bool Sudoku::hidden_single(){
 }
 
 bool Sudoku::naked_cells(int start, int end) {
+    //This function is nice
+
     if(end < start || start < 2 || end > 5){
         std::cout << "End has to be bigger than start" << std::endl;
         std::cout << "Start must be 2 or higher" << std::endl;
@@ -218,8 +220,10 @@ bool Sudoku::naked_cells(int start, int end) {
                     //Check for pairs in col
                     indices = {0,1,2,3,4,5,6,7,8};
                     erase_value(indices,row);
+                    loop_indices = {0,1,2,3,4,5,6,7,8};
+                    erase_value(loop_indices,row);
                     count = 1;
-                    for (int remaining_row = row + 1; remaining_row < 9; ++remaining_row) {
+                    for (auto & remaining_row : loop_indices) {
                         //Check if the annotation is the same
                         if (annotation_tensor.get_data(row, col) == annotation_tensor.get_data(remaining_row, col)) {
                             count++; //Pair found!
@@ -242,8 +246,10 @@ bool Sudoku::naked_cells(int start, int end) {
                     //Check for pair in row
                     indices = {0,1,2,3,4,5,6,7,8};
                     erase_value(indices,col);
+                    loop_indices = {0,1,2,3,4,5,6,7,8};
+                    erase_value(loop_indices,col);
                     count = 1;
-                    for (int remaining_col = col + 1; remaining_col < 9; ++remaining_col) {
+                    for (auto & remaining_col : loop_indices) {
                         //Check if the annotation is the same
                         if (annotation_tensor.get_data(row, col) == annotation_tensor.get_data(row, remaining_col)) {
                             count++; //Pair found!
@@ -295,6 +301,81 @@ bool Sudoku::naked_cells(int start, int end) {
                 }
             }
         }
+    }
+
+    return success;
+}
+
+bool Sudoku::hidden_cells(int start, int end){
+    bool success = false;
+
+    if(end < start || start < 2 || end > 5){
+        std::cout << "End has to be bigger than start" << std::endl;
+        std::cout << "Start must be 2 or higher" << std::endl;
+        std::cout << "End can't be bigger than 5" << std::endl;
+        assert(true);
+    }
+
+    int count;
+    //Initialise list of integers, where each integer represent the cells in a row, column or square it can be placed
+    // and a count of how many cells in which it can be placed is held.
+    int num_annotation[9];
+    std::vector<int> loop;
+    std::vector<int> permutation;
+    int check;
+
+    for(int i = start; start <= end; start++){
+
+        //Checking rows
+        //Reinitialize number of annotations
+        for (int & index : num_annotation) {
+            index = 0;
+        }
+        for (int row = 0; row < 9; row++) {
+            //Check the row for each number and update the number annotation list
+            for (int col = 0; col < 9; ++col) {
+                for (int number = 1; number < 10; number++){
+                    if (annotation_tensor.has_annotation(row,col,number)){
+                        num_annotation[number-1] += 1 << 9; //Count one annotation up
+                        num_annotation[number-1] |= 1 << col; //Push where annotation is set
+                    }
+                }
+            }
+            //Check if number of columns to set a digit is less than or equal to the hidden cells
+            loop = {};
+            for (int number = 1; number < 10; ++number) {
+                if ((num_annotation[number-1] >> 9) <= i){
+                    loop.emplace_back(number);
+                }
+            }
+            if (loop.size() >= i) {
+                //Calculating all possible unique ways of choosing i from the amount of numbers
+                // meeting the requirement to be a hidden cell
+                all_unique_permutations(loop,permutation,i,0);
+
+                for (int current_perm = 0; current_perm < permutation.size()/i; ++current_perm) {
+
+                    // Check if the permutation is a hidden cells
+                    check = 0;
+                    for (int j = 0; j < i; ++j) {
+                        //Placing all columns available for permutation in check
+                        check ^= num_annotation[ permutation[current_perm*i+j] - 1 ];
+                    }
+                    count = 0;
+                    //Counting columns available for permutation
+                    for (int col = 0; col < 9; ++col) {
+                        if((check & (1 << col)) != 0){
+                            count++;
+                        }
+                    }
+                    if (count==i){
+                        //TODO: Do stuff
+                    }
+                }
+
+            }
+        }
+
     }
 
     return success;
@@ -678,4 +759,23 @@ bool is_possible(int row, int col, int number, int (&sudoku_grid)[9][9])
 
 void erase_value(std::vector<int> vec, int val) {
     vec.erase(std::remove(vec.begin(), vec.end(), val), vec.end());
+}
+
+//We need the possibilities, a place to put the combinations, and however many n elements we are allowed to choose
+//Initialise with a call current_pos = 0
+void all_unique_permutations(std::vector<int> & possible, std::vector<int> & combination, int n, int current_pos){
+    static std::vector<int> garbage;
+
+    //All unique pairs are put in one line
+    if (n == 0) {
+        for (int i : garbage){
+            combination.emplace_back(i);
+        }
+        return;
+    }
+    for (int i = current_pos; i <= possible.size() - n; ++i) {
+        garbage.emplace_back(possible[i]);
+        all_unique_permutations( possible, combination, n - 1, i + 1);
+        garbage.pop_back();
+    }
 }
