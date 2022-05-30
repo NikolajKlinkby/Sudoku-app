@@ -5,7 +5,9 @@
 #include <vector>
 #include <random>
 #include <utility>
-#include <assert.h>
+#include <iterator>
+#include <algorithm>
+#include <cassert>
 
 
 ////////////////// ANNOTATION TENSOR CLASS FUNCTIONS //////////////////
@@ -871,69 +873,6 @@ void Sudoku::print_sudoku()
     print_sudoku(sudoku_array);
 }
 
-void Sudoku::crappy_set_sudoku()
-{
-    // Placeholder variable
-    int currently_removed;
-
-    // Shuffling positions
-    shuffle_position_list();
-
-    // counter variable
-    int pos_nr = 0;
-
-    /*--- Main loop ---*/
-    while (pos_nr < 81)
-    {
-        int row = position_list[pos_nr].first;
-        int col = position_list[pos_nr].second;
-        currently_removed = sudoku_array[row][col];
-        sudoku_array[row][col] = 0;
-
-        // Re-shuffling rnd number list
-        set_rnd_number_list();
-
-        // Counting number of solutions
-        int solution_counter = 0;
-        for(int number : rnd_number_list)
-        {
-            if(is_possible(row,col,number))
-            {
-                solution_counter++;
-            }
-        }
-
-        //  multiple solutions -> Undo current removal
-        if (solution_counter > 1)
-        {
-            sudoku_array[row][col] = currently_removed;
-            pos_nr++;
-        }
-            // perfect! still only one solution
-        else if (solution_counter == 1)
-        {
-            pos_nr++;
-        }
-            // no solutions :((
-        else if (solution_counter == 0)
-        {
-            break;
-        }
-    }
-}
-
-std::pair<int,int> Sudoku::random_walk()
-{
-    int row = rand() % 9;
-    int col = rand() % 9;
-    while(sudoku_array[row][col] == 0)
-    {
-        row = rand() % 9;
-        col = rand() % 9;
-    }
-    return std::pair<int,int>(row, col);
-}
-
 bool Sudoku::solvable() {
     // Check for naked singles and set them
     // If grid is complete, stop and return true.
@@ -987,41 +926,174 @@ int Sudoku::set_sudoku(int remaining_numbers)
 
     int nr_current_holes = 0;
     int counter = 0;
-    std::vector<std::pair<int,int>> zero_positions;
-    std::pair<int,int> current_position;
-    int number_buff;
-    while ((nr_current_holes < nr_of_holes) && (counter < MAX_ITER))
-    {
-        for(auto (&position): zero_positions)
-        {
-            sudoku_array[position.first][position.second] = 0;
+    std::vector<int> zero_positions;
+    std::vector<int> set_positions = {};
+    for (int i = 0; i < 81; ++i) {
+        set_positions.emplace_back(i) = i;
+    }
+    std::vector<int> set_positions_UT = {}; //Upper triangle
+    for (int i = 0; i < 81; ++i) {
+        if (i >= (int)(i/10) * 10 && i < (int)(i/10) * 10 + 10 - ((int)(i/10) * 10 + 10)/10) {
+            set_positions_UT.emplace_back() = i;
+        }
+    }
+    std::vector<int> set_positions_LT = {}; //Lower triangle
+    for (int i = 0; i < 81; ++i) {
+        if (i < (int)(i/10) * 10+10 && i >= (int)(i/10) * 10 + 10 - ((int)(i/10) * 10 + 10)/10) {
+            set_positions_LT.emplace_back() = i;
+        }
+    }
+    std::vector<int> current_positions;
+    std::vector<int> number_buff;
+
+    while ((nr_current_holes < nr_of_holes) && (counter < MAX_ITER)) {
+
+        //Setting all current holes
+        for(auto & position : zero_positions) {
+            sudoku_array[(int)position/9][position % 9] = 0;
         }
 
-
-        current_position = random_walk();
-        number_buff      = sudoku_array[current_position.first][current_position.second];
-        sudoku_array[current_position.first][current_position.second] = 0;
-
-        annotation_tensor.fill_annotation(sudoku_array);
-        if(solvable())
-        {
-            nr_current_holes++;
-            zero_positions.emplace_back(current_position);
-        }
-        else
-        {
-            sudoku_array[current_position.first][current_position.second] = number_buff;
+        //If there are fewer than 20 holes pick out 2 cells in both the lower and upper triangle
+        if (nr_current_holes < 20){
+            //Randomly choosing from lower and upper triangle
+            std::sample(
+                    set_positions_UT.begin(),
+                    set_positions_UT.end(),
+                    std::back_inserter(current_positions),
+                    2,
+                    std::mt19937{std::random_device{}()}
+            );
+            std::sample(
+                    set_positions_LT.begin(),
+                    set_positions_LT.end(),
+                    std::back_inserter(current_positions),
+                    2,
+                    std::mt19937{std::random_device{}()}
+            );
+            //Setting the cells to zero and storing their value
+            for (int & cell : current_positions) {
+                number_buff.emplace_back(sudoku_array[(int)cell/9][cell % 9]);
+                sudoku_array[(int)cell/9][cell % 9] = 0;
+            }
+            //Try to solve the sudoku
             annotation_tensor.fill_annotation(sudoku_array);
+            if(solvable()) {
+                nr_current_holes += 4;
+                for (int & cell : current_positions) {
+                    zero_positions.emplace_back(cell);
+                    erase_value(set_positions,cell);
+                    erase_value(set_positions_UT,cell);
+                    erase_value(set_positions_LT,cell);
+                }
+            }
+            else {
+                //Reset the numbers
+                for (int i=0; i < current_positions.size(); ++i) {;
+                    sudoku_array[(int)current_positions[i]/9][current_positions[i] % 9] = number_buff[i];
+                }
+                annotation_tensor.fill_annotation(sudoku_array);
+            }
+            //Clear vectors
+            current_positions.clear();
+            number_buff.clear();
         }
+
+        //If there are fewer than 45 holes pick out 1 cell in both the lower and upper triangle
+        else if (nr_current_holes < 45){
+            //Randomly choosing from lower and upper triangle
+            std::sample(
+                    set_positions_UT.begin(),
+                    set_positions_UT.end(),
+                    std::back_inserter(current_positions),
+                    1,
+                    std::mt19937{std::random_device{}()}
+            );
+            std::sample(
+                    set_positions_LT.begin(),
+                    set_positions_LT.end(),
+                    std::back_inserter(current_positions),
+                    1,
+                    std::mt19937{std::random_device{}()}
+            );
+            //Setting the cells to zero and storing their value
+            for (int & cell : current_positions) {
+                number_buff.emplace_back(sudoku_array[(int)cell/9][cell % 9]);
+                sudoku_array[(int)cell/9][cell % 9] = 0;
+            }
+            //Try to solve the sudoku
+            annotation_tensor.fill_annotation(sudoku_array);
+            if(solvable()) {
+                nr_current_holes += 2;
+                for (int & cell : current_positions) {
+                    zero_positions.emplace_back(cell);
+                    erase_value(set_positions,cell);
+                    erase_value(set_positions_UT,cell);
+                    erase_value(set_positions_LT,cell);
+                }
+
+            }
+            else {
+                //Reset the numbers
+                for (int i = 0; i < current_positions.size(); ++i) {;
+                    sudoku_array[(int)current_positions[i]/9][current_positions[i] % 9] = number_buff[i];
+                }
+                annotation_tensor.fill_annotation(sudoku_array);
+            }
+            //Clear vectors
+            current_positions.clear();
+            number_buff.clear();
+        }
+
+        // If there are more than 45 holes
+        else if (nr_current_holes >= 17){
+            //Randomly choosing from lower and upper triangle
+            std::sample(
+                    set_positions.begin(),
+                    set_positions.end(),
+                    std::back_inserter(current_positions),
+                    1,
+                    std::mt19937{std::random_device{}()}
+            );
+            //Setting the cells to zero and storing their value
+            for (int & cell : current_positions) {
+                number_buff.emplace_back(sudoku_array[(int)cell/9][cell % 9]);
+                sudoku_array[(int)cell/9][cell % 9] = 0;
+            }
+            //Try to solve the sudoku
+            annotation_tensor.fill_annotation(sudoku_array);
+            if(solvable()) {
+                nr_current_holes += 1;
+                for (int & cell : current_positions) {
+                    zero_positions.emplace_back(cell);
+                    erase_value(set_positions,cell);
+                    erase_value(set_positions_UT,cell);
+                    erase_value(set_positions_LT,cell);
+                }
+
+            }
+            else {
+                //Reset the numbers
+                for (int i=0; i < current_positions.size(); ++i) {;
+                    sudoku_array[(int)current_positions[i]/9][current_positions[i] % 9] = number_buff[i];
+                }
+                annotation_tensor.fill_annotation(sudoku_array);
+            }
+            //Clear vectors
+            current_positions.clear();
+            number_buff.clear();
+        }
+
         counter++;
         if (counter >= MAX_ITER) std::cout << "Max iteration at: " << 81-nr_current_holes << " set cells" << std::endl;
     }
-    for(auto (&position): zero_positions)
-    {
-        sudoku_array[position.first][position.second] = 0;
+
+    //Finally, set the sudoku
+    for(auto & position: zero_positions) {
+        sudoku_array[(int)position/9][position % 9] = 0;
     }
     return 81-nr_current_holes;
 }
+
 
 ////////////////// UTILITY FUNCTIONS //////////////////
 bool is_possible(int row, int col, int number, int (&sudoku_grid)[9][9])
@@ -1059,8 +1131,11 @@ bool is_possible(int row, int col, int number, int (&sudoku_grid)[9][9])
     return true;
 }
 
-void erase_value(std::vector<int> vec, int val) {
-    vec.erase(std::remove(vec.begin(), vec.end(), val), vec.end());
+void erase_value(std::vector<int> & vec, int val) {
+    auto position = std::find(vec.begin(), vec.end(), val);
+    if (position != vec.end()) {
+        vec.erase(position);
+    }
 }
 
 //We need the possibilities, a place to put the combinations, and however many n elements we are allowed to choose

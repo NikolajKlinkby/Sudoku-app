@@ -68,10 +68,8 @@ public:
     bool fill_sudoku();
     void print_sudoku();
     void print_sudoku(int array[9][9]);
-    void crappy_set_sudoku();
     void print_rnd_number_list();
     void print_position_list();
-    std::pair<int,int> random_walk();
     int set_sudoku(int remaining_numbers);
     bool solvable();
 
@@ -86,7 +84,7 @@ public:
 };
 
 bool is_possible(int row, int col, int number, int (&sudoku_grid)[9][9]);
-void erase_value(std::vector<int> vec,int val);
+void erase_value(std::vector<int> & vec,int val);
 void all_unique_permutations(std::vector<int> & possible, std::vector<int> & combination, int n, int current_pos);
 
 #endif //SUDOKULOGIC_H

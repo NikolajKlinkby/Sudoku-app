@@ -25,6 +25,8 @@ int main(){
 
     // Setting seed for RNG globally
     srand(time(NULL));
+    std::random_device rd; // obtain a random number from hardware
+    std::mt19937 gen(rd());
 
     Sudoku my_sudoku;
     int nr_of_set = 20;
