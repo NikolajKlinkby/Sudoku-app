@@ -72,8 +72,9 @@ public:
     void print_rnd_number_list();
     void print_position_list();
     std::pair<int,int> random_walk();
-    void set_sudoku(int remaining_numbers);
+    int set_sudoku(int remaining_numbers);
     bool solvable();
+
 
 
     /* --- Attributes ---*/

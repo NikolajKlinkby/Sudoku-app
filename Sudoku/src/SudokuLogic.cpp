@@ -193,8 +193,8 @@ bool Sudoku::hidden_single(){
     return succes;
 }
 
-bool Sudoku::naked_cells(int start, int end) {
-    //This function is nice
+bool Sudoku::naked_cells(int start, int end){
+    bool success = false;
 
     if(end < start || start < 2 || end > 5){
         std::cout << "End has to be bigger than start" << std::endl;
@@ -204,101 +204,219 @@ bool Sudoku::naked_cells(int start, int end) {
     }
 
     int count;
-    std::vector<int> indices;
-    std::vector<int> loop_indices;
-    int row_corner;
-    int col_corner;
-    bool success = false;
-    // Check all cells
-    for (int row = 0; row < 9; ++row) {
-        for (int col = 0; col < 9; ++col) {
+    //Initialise list of integers, where each integer represent the cells in a row, column or square it can be placed
+    // and a count of how many cells in which it can be placed is held.
+    int num_annotation[9];
+    std::vector<int> loop;
+    std::vector<int> permutation;
+    int cell_found;
+    int check;
 
-            for (int i = start; start <= end; start++) {
-                //Only check cells that have two or more annotations
-                if (annotation_tensor.get_annotation_count(row, col) == i) {
+    for(int i = start; start <= end; start++){
 
-                    //Check for pairs in col
-                    indices = {0,1,2,3,4,5,6,7,8};
-                    erase_value(indices,row);
-                    loop_indices = {0,1,2,3,4,5,6,7,8};
-                    erase_value(loop_indices,row);
-                    count = 1;
-                    for (auto & remaining_row : loop_indices) {
-                        //Check if the annotation is the same
-                        if (annotation_tensor.get_data(row, col) == annotation_tensor.get_data(remaining_row, col)) {
-                            count++; //Pair found!
-                            erase_value(indices, remaining_row);
-                        }
+        //Checking rows
+        for (int row = 0; row < 9; row++) {
+
+            //Reinitialize number of annotations
+            for (int & index : num_annotation) {
+                index = 0;
+            }
+
+            //slice the annotation tensor row
+            loop = {};
+            for (int col = 0; col < 9; ++col) {
+                num_annotation[col] = annotation_tensor.get_data(row,col);
+                if ((num_annotation[col] >> 9) <= i){
+                    loop.emplace_back(col);
+                }
+            }
+
+            if (loop.size() >= i) {
+                //Calculating all possible unique ways of choosing i from the amount of columns
+                // meeting the requirement to be a naked cell
+                all_unique_permutations(loop,permutation,i,0);
+                //Loop over all permutations
+                for (int current_perm = 0; current_perm < permutation.size()/i; ++current_perm) {
+
+                    // Check if the permutation is a naked cells
+                    check = 0;
+                    for (int j = 0; j < i; ++j) {
+                        //Placing all numbers available for permutation in check
+                        check ^= num_annotation[permutation[current_perm*i+j]];
                     }
-                    //Remove annotations from the rest of the col
-                    if (count == i) {
-                        //Only try to remove from cells that are not the pair
-                        for (auto & rm_row : indices) {
-                            //Remove the annotations and return success if
-                            for (auto &number: annotation_tensor.get_annotations(row, col)) {
-                                if (annotation_tensor.remove_annotation(rm_row, col, number)) {
-                                    success = true;
-                                }
-                            }
-                        }
-                    }
-
-                    //Check for pair in row
-                    indices = {0,1,2,3,4,5,6,7,8};
-                    erase_value(indices,col);
-                    loop_indices = {0,1,2,3,4,5,6,7,8};
-                    erase_value(loop_indices,col);
-                    count = 1;
-                    for (auto & remaining_col : loop_indices) {
-                        //Check if the annotation is the same
-                        if (annotation_tensor.get_data(row, col) == annotation_tensor.get_data(row, remaining_col)) {
-                            count++; //Pair found!
-                            erase_value(indices, remaining_col);
-                        }
-                    }
-                    //Remove annotations from the rest of the row
-                    if (count == i) {
-                        //Only try to remove from cells that are not the pair
-                        for (auto & rm_col : indices) {
-                            //Remove the annotations and return success if
-                            for (auto &number: annotation_tensor.get_annotations(row, col)) {
-                                if (annotation_tensor.remove_annotation(row, rm_col, number)) {
-                                    success = true;
-                                }
-                            }
-                        }
-                    }
-
-                    //Check for pair in square
-                    row_corner = (row / 3) * 3;
-                    col_corner = (col / 3) * 3;
-
-                    indices = {0,1,2,3,4,5,6,7,8};
-                    loop_indices = {0,1,2,3,4,5,6,7,8};
-                    erase_value(indices,(row-row_corner)*3+col-col_corner);
-                    erase_value(loop_indices,(row-row_corner)*3+col-col_corner);
-
-                    count = 1;
-                    for (auto & index : loop_indices) {
-                        if (annotation_tensor.get_data(row,col) ==
-                            annotation_tensor.get_data(row_corner + index/3,col_corner + index % 3)) {
-                            //Pair found!
+                    count = 0;
+                    //Counting numbers available for permutation
+                    for (int number = 1; number < 10; ++number) {
+                        if((check & (1 << (number-1))) != 0){
                             count++;
-                            erase_value(indices,index);
                         }
                     }
-                    //Remove annotations from the rest of the square
-                    if (count == i) {
-                        for (auto & rm_index : indices ) {
-                            //Remove the annotations and return success if
-                            for (auto &number: annotation_tensor.get_annotations(row, col)) {
-                                if (annotation_tensor.remove_annotation(row_corner + rm_index/3,col_corner + rm_index % 3,number)) {
-                                    success = true;
+                    // If count == i, naked cells found!!!
+                    if (count==i){
+                        //Remove naked numbers in all but the current permutation of columns
+                        for (int col = 0; col < 9; ++col) {
+                            cell_found = 0;
+                            //Check if we are in one of the naked cells
+                            for (int perm = 0; perm < 3; ++perm) {
+                                if (col != (current_perm*i+perm)){
+                                    cell_found++;
+                                }
+                            }
+                            //If not in a naked cell
+                            if (cell_found == 0){
+                                //Loop over numbers in check and remove the annotation
+                                for (int number = 1; number < 10; ++number) {
+                                    if ((check & (1 << (number-1))) != 0){
+                                        if (annotation_tensor.remove_annotation(row,col,number)){
+                                            success = true;
+                                        }
+                                    }
                                 }
                             }
                         }
+
                     }
                 }
+
+            }
+        }
+
+        //Checking columns
+        for (int col = 0; col < 9; col++) {
+
+            //Reinitialize number of annotations
+            for (int & index : num_annotation) {
+                index = 0;
+            }
+
+            //slice the annotation tensor col
+            loop = {};
+            for (int row = 0; row < 9; ++row) {
+                num_annotation[row] = annotation_tensor.get_data(row,col);
+                if ((num_annotation[row] >> 9) <= i){
+                    loop.emplace_back(row);
+                }
+            }
+
+            if (loop.size() >= i) {
+                //Calculating all possible unique ways of choosing i from the amount of rows
+                // meeting the requirement to be a naked cell
+                all_unique_permutations(loop,permutation,i,0);
+                //Loop over all permutations
+                for (int current_perm = 0; current_perm < permutation.size()/i; ++current_perm) {
+
+                    // Check if the permutation is a naked cells
+                    check = 0;
+                    for (int j = 0; j < i; ++j) {
+                        //Placing all numbers available for permutation in check
+                        check ^= num_annotation[permutation[current_perm*i+j]];
+                    }
+                    count = 0;
+                    //Counting numbers available for permutation
+                    for (int number = 1; number < 10; ++number) {
+                        if((check & (1 << (number-1))) != 0){
+                            count++;
+                        }
+                    }
+                    // If count == i, naked cells found!!!
+                    if (count==i){
+                        //Remove naked numbers in all but the current permutation of rows
+                        for (int row = 0; row < 9; ++row) {
+                            cell_found = 0;
+                            //Check if we are in one of the naked cells
+                            for (int perm = 0; perm < 3; ++perm) {
+                                if (col != (current_perm*i+perm)){
+                                    cell_found++;
+                                }
+                            }
+                            //If not in a naked cell
+                            if (cell_found == 0){
+                                //Loop over numbers in check and remove the annotation
+                                for (int number = 1; number < 10; ++number) {
+                                    if ((check & (1 << (number-1))) != 0){
+                                        if (annotation_tensor.remove_annotation(row,col,number)){
+                                            success = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                    }
+                }
+
+            }
+        }
+
+        //Checking square
+        for (int square = 0; square < 9; square++) {
+
+            //Reinitialize number of annotations
+            for (int & index : num_annotation) {
+                index = 0;
+            }
+
+            //Slice the annotation tensor
+            loop = {};
+            for (int square_index = 0; square_index < 9; ++square_index) {
+                num_annotation[square_index] = annotation_tensor.get_data(
+                        (square - (square % 3)) + (int)square_index/3,
+                        (square % 3) * 3 + square_index % 3);
+                if ((num_annotation[square_index] >> 9) <= i){
+                    loop.emplace_back(square_index);
+                }
+            }
+
+            if (loop.size() >= i) {
+                //Calculating all possible unique ways of choosing i from the amount of columns
+                // meeting the requirement to be a naked cell
+                all_unique_permutations(loop,permutation,i,0);
+                //Loop over all permutations
+                for (int current_perm = 0; current_perm < permutation.size()/i; ++current_perm) {
+
+                    // Check if the permutation is a naked cells
+                    check = 0;
+                    for (int j = 0; j < i; ++j) {
+                        //Placing all numbers available for permutation in check
+                        check ^= num_annotation[permutation[current_perm*i+j]];
+                    }
+                    count = 0;
+                    //Counting numbers available for permutation
+                    for (int number = 1; number < 10; ++number) {
+                        if((check & (1 << (number-1))) != 0){
+                            count++;
+                        }
+                    }
+                    // If count == i, naked cells found!!!
+                    if (count==i){
+                        //Remove naked numbers in all but the current permutation of square_index
+                        for (int square_index = 0; square_index < 9; ++square_index) {
+                            cell_found = 0;
+                            //Check if we are in one of the naked cells
+                            for (int perm = 0; perm < 3; ++perm) {
+                                if (square_index != (current_perm*i+perm)){
+                                    cell_found++;
+                                }
+                            }
+                            //If not in a naked cell
+                            if (cell_found == 0){
+                                //Loop over numbers in check and remove the annotation
+                                for (int number = 1; number < 10; ++number) {
+                                    if ((check & (1 << (number-1))) != 0){
+                                        if (annotation_tensor.remove_annotation(
+                                                (square - (square % 3)) + (int)square_index/3,
+                                                (square % 3) * 3 + square_index % 3,
+                                                number)){
+                                            success = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                    }
+                }
+
             }
         }
     }
@@ -322,16 +440,19 @@ bool Sudoku::hidden_cells(int start, int end){
     int num_annotation[9];
     std::vector<int> loop;
     std::vector<int> permutation;
+    int cell_found;
     int check;
 
     for(int i = start; start <= end; start++){
 
         //Checking rows
-        //Reinitialize number of annotations
-        for (int & index : num_annotation) {
-            index = 0;
-        }
         for (int row = 0; row < 9; row++) {
+
+            //Reinitialize number of annotations
+            for (int & index : num_annotation) {
+                index = 0;
+            }
+
             //Check the row for each number and update the number annotation list
             for (int col = 0; col < 9; ++col) {
                 for (int number = 1; number < 10; number++){
@@ -352,7 +473,7 @@ bool Sudoku::hidden_cells(int start, int end){
                 //Calculating all possible unique ways of choosing i from the amount of numbers
                 // meeting the requirement to be a hidden cell
                 all_unique_permutations(loop,permutation,i,0);
-
+                //Loop over all permutations
                 for (int current_perm = 0; current_perm < permutation.size()/i; ++current_perm) {
 
                     // Check if the permutation is a hidden cells
@@ -368,13 +489,181 @@ bool Sudoku::hidden_cells(int start, int end){
                             count++;
                         }
                     }
+                    // If count == i, hidden cells found!!!
                     if (count==i){
-                        //TODO: Do stuff
+                        //Loop over columns in check
+                        for (int col = 0; col < 9; ++col) {
+                            if ((check & (1 << col)) != 0){
+                                //Remove all but the numbers in the current permutation from the columns
+                                for (int number = 1; number < 10; ++number) {
+                                    cell_found = 0;
+                                    for (int perm = 0; perm < 3; ++perm) {
+                                        if (number != (current_perm*i+perm)){
+                                            cell_found++;
+                                        }
+                                    }
+                                    if (cell_found == i){
+                                        if (annotation_tensor.remove_annotation(row,col,number)){
+                                            success = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                     }
                 }
 
             }
         }
+
+        //Checking cols
+        for (int col = 0; col < 9; col++) {
+
+            //Reinitialize number of annotations
+            for (int & index : num_annotation) {
+                index = 0;
+            }
+
+            //Check the col for each number and update the number annotation list
+            for (int row = 0; row < 9; ++row) {
+                for (int number = 1; number < 10; number++){
+                    if (annotation_tensor.has_annotation(row,col,number)){
+                        num_annotation[number-1] += 1 << 9; //Count one annotation up
+                        num_annotation[number-1] |= 1 << row; //Push where annotation is set
+                    }
+                }
+            }
+            //Check if number of rows to set a digit is less than or equal to the hidden cells
+            loop = {};
+            for (int number = 1; number < 10; ++number) {
+                if ((num_annotation[number-1] >> 9) <= i){
+                    loop.emplace_back(number);
+                }
+            }
+            if (loop.size() >= i) {
+                //Calculating all possible unique ways of choosing i from the amount of numbers
+                // meeting the requirement to be a hidden cell
+                all_unique_permutations(loop,permutation,i,0);
+                //Loop over all permutations
+                for (int current_perm = 0; current_perm < permutation.size()/i; ++current_perm) {
+
+                    // Check if the permutation is a hidden cells
+                    check = 0;
+                    for (int j = 0; j < i; ++j) {
+                        //Placing all rows available for permutation in check
+                        check ^= num_annotation[ permutation[current_perm*i+j] - 1 ];
+                    }
+                    count = 0;
+                    //Counting rows available for permutation
+                    for (int row = 0; row < 9; ++row) {
+                        if((check & (1 << row)) != 0){
+                            count++;
+                        }
+                    }
+                    // If count == i, hidden cells found!!!
+                    if (count==i){
+                        //Loop over rows in check
+                        for (int row = 0; row < 9; ++row) {
+                            if ((check & (1 << row)) != 0){
+                                //Remove all but the numbers in the current permutation from the rows
+                                for (int number = 1; number < 10; ++number) {
+                                    cell_found = 0;
+                                    for (int perm = 0; perm < 3; ++perm) {
+                                        if (number != (current_perm*i+perm)){
+                                            cell_found++;
+                                        }
+                                    }
+                                    if (cell_found == i){
+                                        if (annotation_tensor.remove_annotation(row,col,number)){
+                                            success = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                    }
+                }
+
+            }
+        }
+
+        //Checking squares
+        for (int square = 0; square < 9; ++square) {
+
+            //Reinitialize number of annotations
+            for (int & index : num_annotation) {
+                index = 0;
+            }
+
+            //Check the col for each number and update the number annotation list
+            for (int square_index = 0; square_index < 9; ++square_index) {
+                for (int number = 1; number < 10; number++){
+                    if (annotation_tensor.has_annotation((square - (square % 3)) + (int)square_index/3,
+                                                         (square % 3) * 3 + square_index % 3,number)){
+                        num_annotation[number-1] += 1 << 9; //Count one annotation up
+                        num_annotation[number-1] |= 1 << square_index; //Push where annotation is set
+                    }
+                }
+            }
+            //Check if number of square index to set a digit is less than or equal to the hidden cells
+            loop = {};
+            for (int number = 1; number < 10; ++number) {
+                if ((num_annotation[number-1] >> 9) <= i){
+                    loop.emplace_back(number);
+                }
+            }
+            if (loop.size() >= i) {
+                //Calculating all possible unique ways of choosing i from the amount of numbers
+                // meeting the requirement to be a hidden cell
+                all_unique_permutations(loop,permutation,i,0);
+                //Loop over all permutations
+                for (int current_perm = 0; current_perm < permutation.size()/i; ++current_perm) {
+
+                    // Check if the permutation is a hidden cells
+                    check = 0;
+                    for (int j = 0; j < i; ++j) {
+                        //Placing all square index available for permutation in check
+                        check ^= num_annotation[ permutation[current_perm*i+j] - 1 ];
+                    }
+                    count = 0;
+                    //Counting square index available for permutation
+                    for (int square_index = 0; square_index < 9; ++square_index) {
+                        if((check & (1 << square_index)) != 0){
+                            count++;
+                        }
+                    }
+                    // If count == i, hidden cells found!!!
+                    if (count==i){
+                        //Loop over square index in check
+                        for (int square_index = 0; square_index < 9; ++square_index) {
+                            if ((check & (1 << square_index)) != 0){
+                                //Remove all but the numbers in the current permutation from the rows
+                                for (int number = 1; number < 10; ++number) {
+                                    cell_found = 0;
+                                    for (int perm = 0; perm < 3; ++perm) {
+                                        if (number != (current_perm*i+perm)){
+                                            cell_found++;
+                                        }
+                                    }
+                                    if (cell_found == i){
+                                        if (annotation_tensor.remove_annotation(
+                                                    (square - (square % 3)) + (int)square_index/3,
+                                                    (square % 3) * 3 + square_index % 3,
+                                                    number)){
+                                            success = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+            }
+        }
+
 
     }
 
@@ -670,8 +959,20 @@ bool Sudoku::solvable() {
             return true;
         }
     }
+        //Check for hidden pairs and triples
+    else if (hidden_cells(2,3)){
+        if (solvable()){
+            return true;
+        }
+    }
         //Check for naked quadruples
     else if (naked_cells(4,4)){
+        if (solvable()){
+            return true;
+        }
+    }
+        //Check for hidden quadruples
+    else if (hidden_cells(4,4)){
         if (solvable()){
             return true;
         }
@@ -679,7 +980,7 @@ bool Sudoku::solvable() {
     return false;
 }
 
-void Sudoku::set_sudoku(int remaining_numbers)
+int Sudoku::set_sudoku(int remaining_numbers)
 {
     int MAX_ITER = 100;
     int nr_of_holes = 81 - remaining_numbers;
@@ -696,6 +997,7 @@ void Sudoku::set_sudoku(int remaining_numbers)
             sudoku_array[position.first][position.second] = 0;
         }
 
+
         current_position = random_walk();
         number_buff      = sudoku_array[current_position.first][current_position.second];
         sudoku_array[current_position.first][current_position.second] = 0;
@@ -708,17 +1010,17 @@ void Sudoku::set_sudoku(int remaining_numbers)
         }
         else
         {
-            std::cout << "not solvable" << std::endl;
             sudoku_array[current_position.first][current_position.second] = number_buff;
             annotation_tensor.fill_annotation(sudoku_array);
         }
         counter++;
-        if (counter >= MAX_ITER) std::cout << "MAX ØV BØV NÅET" << std::endl;
+        if (counter >= MAX_ITER) std::cout << "Max iteration at: " << 81-nr_current_holes << " set cells" << std::endl;
     }
     for(auto (&position): zero_positions)
     {
         sudoku_array[position.first][position.second] = 0;
     }
+    return 81-nr_current_holes;
 }
 
 ////////////////// UTILITY FUNCTIONS //////////////////

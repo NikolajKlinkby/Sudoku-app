@@ -27,7 +27,7 @@ int main(){
     srand(time(NULL));
 
     Sudoku my_sudoku;
-    int nr_of_set = 40;
+    int nr_of_set = 20;
     std::cout << "### PRINTING FILLED GRID ###" << std::endl;
     my_sudoku.print_sudoku();
     std::cout << std::endl;
@@ -43,6 +43,7 @@ int main(){
         printf("Error: %s\n", SDL_GetError());
         return -1;
     }
+    */
     /*---- CROSS-PLATFORM COMPATABILITY ----*/
     // Decide GL+GLSL versions
     /*
